@@ -305,29 +305,24 @@
                         const textContent = await page.getTextContent();
                         
                         // 將單頁所有擷取到的字串組合成一段
-                        const pageText = textContent.items.map(item => item.str).join(' ');
+                        const pageText = textContent.items.map(item => item.str).join(' ').trim();
 
                         let slide = pres.addSlide();
                         slide.background = { color: "FFFDF9" };
 
-                        if (pageText.trim() === '') {
-                            slide.addText('(此頁無純文字或皆為圖片)', {
+                        if (!pageText) {
+                            // 若真的抓不到純文字（掃描檔或純圖檔），給予提示避免空白錯覺
+                            slide.addText('⚠️ 此頁為全圖片或掃描檔，無純文字可提取', {
                                 x: 0.5, y: 2.5, w: 9, h: 1, align: 'center', color: '999999', fontSize: 16
                             });
                         } else {
-                            // 將真實擷取的內容寫入 PPTX，如果內容太長就加上省略號避免破版
-                            const shortText = pageText.length > 800 ? pageText.substring(0, 800) + '...' : pageText;
-                            slide.addText(shortText, {
+                            // 將真實擷取的內容寫入 PPTX，解除字數強制截斷，讓它自動排版
+                            slide.addText(pageText, {
                                 x: 0.5, y: 0.5, w: 9, h: 4.5,
                                 fontSize: 14, color: '5C4A3D', fontFace: 'Arial',
                                 valign: 'top', wrap: true
                             });
                         }
-                        
-                        // 每一頁的頁尾都加上你的署名
-                        slide.addText(`第 ${i} 頁 | Created by 王禹硯`, {
-                            x: 0.5, y: 5.2, w: 9, h: 0.5, fontSize: 10, color: '88A07A', align: 'center'
-                        });
                     }
                 } else {
                     // 若是 PPTX，前端無法直接拆解，給出說明
@@ -335,7 +330,6 @@
                     slide.background = { color: "FFFDF9" };
                     slide.addText("⚠️ 目前為純前端模式", { x: 0.5, y: 1.5, w: 9, h: 1, fontSize: 24, bold: true, color: 'D84C3F', align: 'center' });
                     slide.addText("GitHub Pages 無法在沒有後端的情況下直接拆解 PPTX 檔案。\n(但如果您上傳的是 PDF，已經可以成功擷取真實文字囉！)", { x: 0.5, y: 2.5, w: 9, h: 2, fontSize: 16, color: '5C4A3D', align: 'center' });
-                    slide.addText(`Created by 王禹硯`, { x: 0.5, y: 5.2, w: 9, h: 0.5, fontSize: 10, color: '88A07A', align: 'center' });
                 }
 
                 // 產生檔案並綁定下載按鈕
