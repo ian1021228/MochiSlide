@@ -211,6 +211,14 @@
                 <a id="downloadBtn" href="#" class="bg-matcha hover:bg-matcha-hover text-white px-10 py-4 rounded-full font-extrabold text-lg transition-all flex items-center gap-3 shadow-xl shadow-matcha/30 hover:-translate-y-1 hover:shadow-2xl">
                     <i class="ph-bold ph-spinner animate-spin text-2xl"></i> 檔案生成中...
                 </a>
+
+                <!-- 新增：沙盒環境警告與右鍵下載提示 -->
+                <div id="sandboxWarning" class="hidden mt-5 max-w-sm">
+                    <p class="text-sm text-red-500 font-bold bg-red-50 p-3 rounded-xl border border-red-200 shadow-sm leading-relaxed">
+                        ⚠️ 預覽環境限制無法自動下載。<br>
+                        若點擊上方按鈕無反應，請對著按鈕<br><span class="text-lg underline decoration-2 underline-offset-4">「按右鍵」➔ 選擇「另存連結為...」</span><br>即可成功下載檔案！
+                    </p>
+                </div>
                 
                 <button onclick="resetApp()" class="mt-6 text-sm font-bold text-choco-800 underline decoration-mochi-300 underline-offset-4 hover:text-matcha transition-colors">
                     再轉換另一份檔案
@@ -433,9 +441,12 @@
         // ==============================================================
         async function preparePPTX(originalName) {
             const downloadBtn = document.getElementById('downloadBtn');
+            const sandboxWarning = document.getElementById('sandboxWarning');
+            
             // 鎖定按鈕狀態
             downloadBtn.classList.add('opacity-50', 'pointer-events-none');
             downloadBtn.innerHTML = '<i class="ph-bold ph-spinner animate-spin text-2xl"></i> 檔案打包裝載中...';
+            sandboxWarning.classList.add('hidden');
 
             try {
                 let pres = new PptxGenJS();
@@ -453,42 +464,49 @@
                     x: 0.5, y: 0.5, w: 9, h: 1, fontSize: 28, bold: true, color: '4A3B31', fontFace: 'Arial'
                 });
 
-                slide.addText([
-                    { text: "1. 所有的文字都已經解開絕對座標，可以像 Word 一樣流暢編輯。", options: { bullet: { type: 'number' } } },
-                    { text: "2. 圖片與圖表皆為獨立物件，可隨意拖拉移動。", options: { bullet: { type: 'number' } } },
-                    { text: "3. 惱人的浮水印已經被 MochiSlide 的 AI 徹底清除了！", options: { bullet: { type: 'number' } } },
-                    { text: "4. 本簡報作者已設定為：王禹硯", options: { bullet: { type: 'number' } } }
-                ], {
-                    x: 0.5, y: 1.8, w: 9, h: 2, fontSize: 18, color: '5C4A3D', fontFace: 'Arial', lineSpacing: 36
+                // 簡化陣列寫法，避免套件錯誤，改用字串換行與 bullet 屬性
+                slide.addText("1. 所有的文字都已經解開絕對座標，可以像 Word 一樣流暢編輯。\n2. 圖片與圖表皆為獨立物件，可隨意拖拉移動。\n3. 惱人的浮水印已經被 MochiSlide 的 AI 徹底清除了！\n4. 本簡報作者已設定為：王禹硯", {
+                    x: 0.5, y: 1.8, w: 9, h: 2.5, fontSize: 18, color: '5C4A3D', fontFace: 'Arial', lineSpacing: 36, bullet: true
                 });
 
-                slide.addShape(pres.ShapeType.roundRect, {
-                    x: 0.5, y: 4.5, w: 4, h: 2, fill: '88A07A', rectRadius: 0.2, 
+                // 【修復致命 Bug】: 將未定義的 roundRect 改為標準的 rect，並保留 rectRadius 以維持圓角設計
+                slide.addShape(pres.ShapeType.rect, {
+                    x: 0.5, y: 4.8, w: 4, h: 1.5, fill: '88A07A', rectRadius: 0.2, 
                     text: '這是一張被分離出來的圖\n(試著用滑鼠拖拉移動我吧！)', 
                     align: 'center', fontSize: 16, color: 'FFFFFF', bold: true
                 });
 
+                // 確認 oval 形狀正確使用
                 slide.addShape(pres.ShapeType.oval, {
-                    x: 5, y: 4.5, w: 2, h: 2, fill: 'F4A298',
+                    x: 5, y: 4.8, w: 2, h: 1.5, fill: 'F4A298',
                     text: '無浮水印\n純淨版面', 
                     align: 'center', fontSize: 16, color: 'FFFFFF', bold: true
                 });
 
                 // 將檔案轉換為 Data URI 格式，綁定到真正的 <a> 標籤上
                 const finalFileName = `MochiSlide_${originalName.split('.')[0] || 'Document'}_可編輯版.pptx`;
-                const base64Data = await pres.write({ outputType: "base64" });
-                const dataUri = "data:application/vnd.openxmlformats-officedocument.presentationml.presentation;base64," + base64Data;
                 
-                downloadBtn.href = dataUri;
-                downloadBtn.download = finalFileName;
-                downloadBtn.classList.remove('opacity-50', 'pointer-events-none');
-                downloadBtn.innerHTML = '<i class="ph-bold ph-download-simple text-2xl"></i> 立即下載 PPTX';
-                
-                showMessage("檔案已準備完畢，請點擊按鈕下載！", false);
+                // 使用 .then() 避免 await 可能造成的卡死
+                pres.write({ outputType: "base64" }).then(base64Data => {
+                    const dataUri = "data:application/vnd.openxmlformats-officedocument.presentationml.presentation;base64," + base64Data;
+                    
+                    downloadBtn.href = dataUri;
+                    downloadBtn.download = finalFileName;
+                    downloadBtn.classList.remove('opacity-50', 'pointer-events-none');
+                    downloadBtn.innerHTML = '<i class="ph-bold ph-download-simple text-2xl"></i> 立即下載 PPTX';
+                    
+                    // 顯示防呆警告 (讓使用者知道被阻擋時該怎麼辦)
+                    sandboxWarning.classList.remove('hidden');
+                    
+                    showMessage("檔案已準備完畢！(若點擊無反應請右鍵另存)", false);
+                }).catch(err => {
+                    throw err; // 丟給外層 catch 處理
+                });
 
             } catch (error) {
                 console.error("生成 PPTX 發生錯誤:", error);
                 downloadBtn.innerHTML = '<i class="ph-bold ph-warning text-2xl"></i> 產生失敗，請重試';
+                sandboxWarning.classList.add('hidden');
                 showMessage("喔噢！產生簡報時發生了一點小錯誤，請再試一次！");
             }
         }
@@ -499,8 +517,10 @@
             resetUIState();       
             
             const downloadBtn = document.getElementById('downloadBtn');
+            const sandboxWarning = document.getElementById('sandboxWarning');
             downloadBtn.href = "#";
             downloadBtn.removeAttribute('download');
+            sandboxWarning.classList.add('hidden');
             
             successArea.classList.add('hidden');
             processingArea.classList.add('hidden');
