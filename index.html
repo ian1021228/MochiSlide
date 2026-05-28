@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MochiSlide 麻糬簡報 | 可愛又強大的 AI 簡報轉換器</title>
     
-    <!-- 修復 Favicon 404 找不到的警告 (直接使用麻糬 Emoji) -->
+    <!-- 分頁圖示 -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍡</text></svg>">
     
-    <!-- Google Fonts: Nunito & M PLUS Rounded 1c (圓滑可愛字體) -->
+    <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -16,10 +16,13 @@
     <!-- Phosphor Icons -->
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
 
-    <!-- PptxGenJS (Bundle 版已包含 JSZip) -->
+    <!-- PDF.js (用於純前端擷取真實 PDF 文字) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+
+    <!-- PptxGenJS (用於產生 PPTX 檔案) -->
     <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
 
-    <!-- Tailwind CSS (Warning in console is expected for CDN, perfectly fine for this use case) -->
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
 
     <script>
@@ -42,18 +45,9 @@
                         'pop-in': 'popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards',
                     },
                     keyframes: {
-                        fadeIn: {
-                            '0%': { opacity: '0', transform: 'translateY(10px)' },
-                            '100%': { opacity: '1', transform: 'translateY(0)' },
-                        },
-                        bounceSlight: {
-                            '0%, 100%': { transform: 'translateY(0)' },
-                            '50%': { transform: 'translateY(-6px)' },
-                        },
-                        popIn: {
-                            '0%': { opacity: '0', transform: 'scale(0.9)' },
-                            '100%': { opacity: '1', transform: 'scale(1)' },
-                        }
+                        fadeIn: { '0%': { opacity: '0', transform: 'translateY(10px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
+                        bounceSlight: { '0%, 100%': { transform: 'translateY(0)' }, '50%': { transform: 'translateY(-6px)' } },
+                        popIn: { '0%': { opacity: '0', transform: 'scale(0.9)' }, '100%': { opacity: '1', transform: 'scale(1)' } }
                     }
                 }
             }
@@ -61,40 +55,12 @@
     </script>
 
     <style>
-        body {
-            background-color: #FFFDF9; 
-            color: #5C4A3D; 
-        }
-        
-        .upload-dashed-border {
-            background-image: url("data:image/svg+xml,%3csvg width='100%25' height='100%25' xmlns='http://www.w3.org/2000/svg'%3e%3crect width='100%25' height='100%25' fill='none' rx='32' ry='32' stroke='%23E8D5C4' stroke-width='3' stroke-dasharray='12%2c 12' stroke-dashoffset='0' stroke-linecap='round'/%3e%3c/svg%3e");
-            border-radius: 32px;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .upload-dashed-border.dragover {
-            background-image: url("data:image/svg+xml,%3csvg width='100%25' height='100%25' xmlns='http://www.w3.org/2000/svg'%3e%3crect width='100%25' height='100%25' fill='%23FDF8F0' rx='32' ry='32' stroke='%2388A07A' stroke-width='3' stroke-dasharray='12%2c 12' stroke-dashoffset='0' stroke-linecap='round'/%3e%3c/svg%3e");
-            transform: scale(1.03) translateY(-4px);
-            box-shadow: 0 20px 40px rgba(136, 160, 122, 0.15);
-        }
-
-        .cute-spinner {
-            width: 24px;
-            height: 24px;
-            border: 4px solid rgba(136, 160, 122, 0.2);
-            border-top-color: #88A07A;
-            border-radius: 50%;
-            animation: spin 1s infinite cubic-bezier(0.68, -0.55, 0.265, 1.55);
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .pill-tag {
-            @apply px-4 py-1.5 bg-mochi-200 text-choco-800 text-sm font-bold rounded-full flex items-center gap-1.5 shadow-sm;
-        }
+        body { background-color: #FFFDF9; color: #5C4A3D; }
+        .upload-dashed-border { background-image: url("data:image/svg+xml,%3csvg width='100%25' height='100%25' xmlns='http://www.w3.org/2000/svg'%3e%3crect width='100%25' height='100%25' fill='none' rx='32' ry='32' stroke='%23E8D5C4' stroke-width='3' stroke-dasharray='12%2c 12' stroke-dashoffset='0' stroke-linecap='round'/%3e%3c/svg%3e"); border-radius: 32px; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .upload-dashed-border.dragover { background-image: url("data:image/svg+xml,%3csvg width='100%25' height='100%25' xmlns='http://www.w3.org/2000/svg'%3e%3crect width='100%25' height='100%25' fill='%23FDF8F0' rx='32' ry='32' stroke='%2388A07A' stroke-width='3' stroke-dasharray='12%2c 12' stroke-dashoffset='0' stroke-linecap='round'/%3e%3c/svg%3e"); transform: scale(1.03) translateY(-4px); box-shadow: 0 20px 40px rgba(136, 160, 122, 0.15); }
+        .cute-spinner { width: 24px; height: 24px; border: 4px solid rgba(136, 160, 122, 0.2); border-top-color: #88A07A; border-radius: 50%; animation: spin 1s infinite cubic-bezier(0.68, -0.55, 0.265, 1.55); }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .pill-tag { @apply px-4 py-1.5 bg-mochi-200 text-choco-800 text-sm font-bold rounded-full flex items-center gap-1.5 shadow-sm; }
     </style>
 </head>
 
@@ -115,21 +81,13 @@
             <span class="font-rounded font-extrabold text-2xl tracking-wide">MochiSlide</span>
         </div>
         <div class="px-4 py-2 bg-mochi-100 rounded-full text-sm text-choco-800 font-bold border border-mochi-200">
-            不用登入・即刻變身 ✨
+            純前端檔案解析引擎 ⚡️
         </div>
     </header>
 
     <!-- Main Content -->
     <main class="flex-grow flex flex-col items-center px-4 sm:px-6 w-full max-w-5xl mx-auto">
-        
         <section class="text-center mt-10 mb-10 animate-fade-in">
-            <div class="flex flex-wrap justify-center gap-3 mb-6">
-                <span class="pill-tag"><i class="ph-bold ph-lock-key-open text-matcha"></i> 終身免登入</span>
-                <span class="pill-tag"><i class="ph-bold ph-eraser text-peach"></i> 一鍵去浮水印</span>
-                <span class="pill-tag"><i class="ph-bold ph-text-aa text-blue-400"></i> 文字完美編輯</span>
-                <span class="pill-tag"><i class="ph-bold ph-images text-purple-400"></i> 圖片自由移動</span>
-            </div>
-            
             <h1 class="text-4xl md:text-5xl lg:text-6xl font-rounded font-extrabold text-choco-900 leading-[1.3] mb-6">
                 把硬梆梆的 PDF <br class="hidden md:block"/>
                 變成 <span class="relative inline-block px-2">
@@ -137,10 +95,9 @@
                     <span class="absolute bottom-2 left-0 w-full h-4 bg-matcha/20 -z-10 rounded-full"></span>
                 </span> 智慧簡報
             </h1>
-            
             <p class="text-lg text-choco-800 max-w-2xl mx-auto font-medium leading-relaxed opacity-90">
-                導入最新的 AI 語意重組魔法，自動抹除惱人浮水印。<br/>
-                轉換後的簡報可以自由打字、換行、移動圖表，就是這麼神奇！
+                導入最新 PDF 解析技術，提取你檔案中的每一行真實文字。<br/>
+                轉換後的簡報可以自由打字、換行，就是這麼神奇！
             </p>
         </section>
 
@@ -148,137 +105,86 @@
             <!-- Upload Area -->
             <div id="dropzone" class="upload-dashed-border bg-white cursor-pointer relative p-12 md:p-24 flex flex-col items-center justify-center text-center group hover:bg-mochi-50">
                 <input type="file" id="fileInput" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" accept=".pdf, .pptx" title="">
-                
                 <div class="pointer-events-none w-20 h-20 bg-mochi-100 text-matcha rounded-[2rem] flex items-center justify-center mb-6 animate-bounce-slight shadow-sm border border-mochi-200">
                     <i class="ph-bold ph-cloud-arrow-up text-4xl"></i>
                 </div>
-                
                 <h3 class="pointer-events-none text-2xl font-rounded font-extrabold text-choco-900 mb-3">把簡報檔案丟進來吧！</h3>
-                <p class="pointer-events-none text-choco-800 opacity-70 font-bold mb-4">支援 PDF 或 PPTX (點擊或拖曳皆可)</p>
+                <p class="pointer-events-none text-choco-800 opacity-70 font-bold mb-4">請上傳 PDF 檔案以提取真實內容</p>
                 <div class="pointer-events-none bg-mochi-100 px-4 py-2 rounded-full text-xs text-choco-800 font-bold border border-mochi-200">
-                    💡 支援檔案大小 30MB 內，單次最高處理 30 頁
+                    💡 支援單次最高處理 30 頁
                 </div>
             </div>
 
-            <!-- Processing State (Hidden by default) -->
+            <!-- Processing State -->
             <div id="processingArea" class="hidden bg-white border-2 border-mochi-200 rounded-[2rem] p-10 shadow-lg mt-8 relative overflow-hidden">
                 <div class="absolute top-0 left-0 w-full h-2 bg-mochi-200">
                     <div id="progressBar" class="h-full bg-matcha w-0 transition-all duration-500 rounded-r-full"></div>
                 </div>
-
                 <div class="flex items-center gap-5 mb-8">
                     <div class="p-4 bg-mochi-100 rounded-2xl text-matcha shadow-inner">
                         <i class="ph-fill ph-magic-wand text-3xl animate-pulse"></i>
                     </div>
                     <div>
-                        <h4 class="font-rounded font-extrabold text-xl text-choco-900">AI 魔法施展中...</h4>
+                        <h4 class="font-rounded font-extrabold text-xl text-choco-900">真實內容解析中...</h4>
                         <p class="text-sm font-bold text-choco-800 opacity-70" id="currentFileName">file.pdf</p>
                     </div>
                 </div>
-
                 <div class="space-y-5">
                     <div class="flex items-center gap-4 text-base font-bold" id="step1">
                         <div class="step-icon w-8 h-8 flex items-center justify-center bg-mochi-100 rounded-full"><div class="cute-spinner"></div></div>
-                        <span class="step-text text-choco-900">咬碎檔案：正在讀取文字與圖片元素...</span>
+                        <span class="step-text text-choco-900">讀取檔案：正在掃描您的真實檔案內容...</span>
                     </div>
                     <div class="flex items-center gap-4 text-base font-bold opacity-40 transition-opacity" id="step2">
                         <div class="step-icon w-8 h-8 flex items-center justify-center bg-mochi-100 rounded-full"><i class="ph-bold ph-circle text-mochi-300"></i></div>
-                        <span class="step-text text-choco-800">橡皮擦精靈：完美擦除母片與頁面浮水印...</span>
+                        <span class="step-text text-choco-800">提取文字：逐頁抓取內文結構...</span>
                     </div>
                     <div class="flex items-center gap-4 text-base font-bold opacity-40 transition-opacity" id="step3">
                         <div class="step-icon w-8 h-8 flex items-center justify-center bg-mochi-100 rounded-full"><i class="ph-bold ph-circle text-mochi-300"></i></div>
-                        <span class="step-text text-choco-800">積木重組：將碎裂文字轉化為可編輯段落...</span>
-                    </div>
-                    <div class="flex items-center gap-4 text-base font-bold opacity-40 transition-opacity" id="step4">
-                        <div class="step-icon w-8 h-8 flex items-center justify-center bg-mochi-100 rounded-full"><i class="ph-bold ph-circle text-mochi-300"></i></div>
-                        <span class="step-text text-choco-800">最後裝飾：分離圖片物件並套用圓滑字體...</span>
+                        <span class="step-text text-choco-800">積木重組：將文字轉化為可編輯段落...</span>
                     </div>
                 </div>
             </div>
 
-            <!-- Success State (Hidden by default) -->
+            <!-- Success State -->
             <div id="successArea" class="hidden bg-white border-2 border-matcha/30 rounded-[2rem] p-12 shadow-xl shadow-matcha/10 mt-8 text-center flex flex-col items-center relative overflow-hidden">
-                <div class="absolute -top-10 -right-10 text-matcha opacity-10 rotate-12">
-                    <i class="ph-fill ph-confetti text-9xl"></i>
-                </div>
-
                 <div class="w-20 h-20 bg-matcha text-white rounded-full flex items-center justify-center mb-5 animate-pop-in shadow-lg shadow-matcha/40">
                     <i class="ph-bold ph-check text-4xl"></i>
                 </div>
                 <h4 class="font-rounded font-extrabold text-3xl text-choco-900 mb-3">大功告成！</h4>
                 <p class="text-choco-800 font-bold opacity-80 mb-8 max-w-sm">
-                    浮水印已清除！這是一份<span class="text-matcha">真正可以編輯文字、自由移動圖片</span>的簡報檔案。
+                    已成功讀取您的真實內容！文字已解開絕對座標，可以自由編輯囉。
                 </p>
-                
-                <!-- 使用 <a> 標籤並綁定 Base64 URI 解決沙盒攔截問題 -->
                 <a id="downloadBtn" href="#" class="bg-matcha hover:bg-matcha-hover text-white px-10 py-4 rounded-full font-extrabold text-lg transition-all flex items-center gap-3 shadow-xl shadow-matcha/30 hover:-translate-y-1 hover:shadow-2xl">
-                    <i class="ph-bold ph-spinner animate-spin text-2xl"></i> 檔案生成中...
+                    <i class="ph-bold ph-spinner animate-spin text-2xl"></i> 讀取真實內容中...
                 </a>
-
                 <div id="sandboxWarning" class="hidden mt-5 max-w-sm">
                     <p class="text-sm text-red-500 font-bold bg-red-50 p-3 rounded-xl border border-red-200 shadow-sm leading-relaxed">
-                        ⚠️ 若點擊上方按鈕無反應，請對著按鈕<br><span class="text-lg underline decoration-2 underline-offset-4">「按右鍵」➔ 選擇「另存連結為...」</span><br>即可成功下載檔案！
+                        ⚠️ 若點擊按鈕無反應，請對著上方按鈕<br><span class="text-lg underline decoration-2 underline-offset-4">「按右鍵」➔ 選擇「另存連結為...」</span>
                     </p>
                 </div>
-                
                 <button onclick="resetApp()" class="mt-6 text-sm font-bold text-choco-800 underline decoration-mochi-300 underline-offset-4 hover:text-matcha transition-colors">
                     再轉換另一份檔案
                 </button>
             </div>
         </section>
-
-        <!-- Features -->
-        <section class="w-full grid grid-cols-1 md:grid-cols-3 gap-6 mb-24">
-            <div class="bg-white p-8 rounded-[2rem] border-2 border-mochi-100 shadow-sm hover:border-mochi-300 transition-colors">
-                <div class="w-14 h-14 bg-mochi-100 text-choco-900 rounded-2xl flex items-center justify-center mb-5">
-                    <i class="ph-bold ph-text-t text-3xl"></i>
-                </div>
-                <h3 class="font-rounded font-extrabold text-xl text-choco-900 mb-3">文字框不再碎裂</h3>
-                <p class="text-sm text-choco-800 leading-relaxed font-bold opacity-80">
-                    AI 讀懂你的段落語意！轉換後不會是一堆東拼西湊的死方塊，而是可以像 Word 一樣流暢按 Enter 換行的智慧文字框。
-                </p>
-            </div>
-            <div class="bg-white p-8 rounded-[2rem] border-2 border-mochi-100 shadow-sm hover:border-mochi-300 transition-colors">
-                <div class="w-14 h-14 bg-mochi-100 text-peach rounded-2xl flex items-center justify-center mb-5">
-                    <i class="ph-bold ph-eraser text-3xl"></i>
-                </div>
-                <h3 class="font-rounded font-extrabold text-xl text-choco-900 mb-3">無痕去浮水印</h3>
-                <p class="text-sm text-choco-800 leading-relaxed font-bold opacity-80">
-                    不管是蓋在投影片母片底層的公司 Logo，還是半透明的「機密草稿」文字，全部自動偵測並一鍵徹底抹除。
-                </p>
-            </div>
-            <div class="bg-white p-8 rounded-[2rem] border-2 border-mochi-100 shadow-sm hover:border-mochi-300 transition-colors">
-                <div class="w-14 h-14 bg-mochi-100 text-blue-500 rounded-2xl flex items-center justify-center mb-5">
-                    <i class="ph-bold ph-bounding-box text-3xl"></i>
-                </div>
-                <h3 class="font-rounded font-extrabold text-xl text-choco-900 mb-3">圖片自由移動</h3>
-                <p class="text-sm text-choco-800 leading-relaxed font-bold opacity-80">
-                    告別整頁變成一張死圖的窘境。圖表、照片與插圖都會被精準分離成獨立物件，讓你在簡報裡隨心所欲地拖拉排版。
-                </p>
-            </div>
-        </section>
     </main>
 
-    <!-- Footer / Privacy -->
     <footer class="w-full bg-mochi-100 border-t border-mochi-200 py-12 px-6 mt-auto">
         <div class="max-w-4xl mx-auto text-sm text-choco-800 font-bold space-y-4">
             <div class="flex items-start gap-3">
                 <i class="ph-fill ph-shield-check text-matcha text-xl mt-0.5"></i>
                 <div>
-                    <h4 class="font-extrabold text-choco-900 mb-1">隱私最安心</h4>
-                    <p class="opacity-80 leading-relaxed">您的檔案僅供當次去浮水印與 AI 重組使用。伺服器會在 10 分鐘內自動銷毀所有上傳檔案，絕不偷拿去訓練模型！</p>
+                    <h4 class="font-extrabold text-choco-900 mb-1">本機解析最安心</h4>
+                    <p class="opacity-80 leading-relaxed">此版本採用純前端解析技術，檔案直接在您的瀏覽器內進行文字拆解，絕不上傳至任何伺服器，保證 100% 隱私！</p>
                 </div>
             </div>
-            
             <div class="pt-8 border-t border-mochi-200 text-center text-xs opacity-70 flex flex-col sm:flex-row justify-center items-center gap-2">
-                <span>© 2026 MochiSlide (麻糬簡報). Crafted with cute & round vibes.</span>
-                <span class="hidden sm:inline">|</span>
+                <span>© 2026 MochiSlide (麻糬簡報).</span>
                 <span class="text-matcha font-extrabold">Created by 王禹硯</span>
             </div>
         </div>
     </footer>
 
-    <!-- Application Logic -->
     <script>
         const dropzone = document.getElementById('dropzone');
         const fileInput = document.getElementById('fileInput');
@@ -286,15 +192,15 @@
         const successArea = document.getElementById('successArea');
         const currentFileName = document.getElementById('currentFileName');
         const progressBar = document.getElementById('progressBar');
+        
+        let activeTimeouts = []; 
+        let currentUploadedFile = null; // 儲存真實上傳的檔案
 
-        // 自訂訊息提示
         function showMessage(msg, isError = true) {
             const toast = document.getElementById('toast');
             const toastMsg = document.getElementById('toastMsg');
             const toastIcon = document.getElementById('toastIcon');
-            
             toastMsg.textContent = msg;
-            
             if(isError) {
                 toast.className = 'fixed top-5 left-1/2 -translate-x-1/2 px-6 py-4 rounded-full shadow-2xl font-extrabold z-50 transition-all duration-300 flex items-center gap-3 bg-[#FFE8E5] text-[#D84C3F] border border-[#F4A298] transform translate-y-0 opacity-100';
                 toastIcon.className = 'ph-bold ph-warning-circle text-2xl';
@@ -302,18 +208,10 @@
                 toast.className = 'fixed top-5 left-1/2 -translate-x-1/2 px-6 py-4 rounded-full shadow-2xl font-extrabold z-50 transition-all duration-300 flex items-center gap-3 bg-[#F0FDF4] text-matcha border border-matcha/50 transform translate-y-0 opacity-100';
                 toastIcon.className = 'ph-bold ph-check-circle text-2xl';
             }
-
             setTimeout(() => {
                 toast.classList.remove('translate-y-0', 'opacity-100');
                 toast.classList.add('-translate-y-4', 'opacity-0', 'pointer-events-none');
             }, 3500);
-        }
-
-        let activeTimeouts = []; 
-
-        function clearAllTimeouts() {
-            activeTimeouts.forEach(clearTimeout);
-            activeTimeouts = [];
         }
 
         ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
@@ -321,21 +219,9 @@
             document.body.addEventListener(eventName, preventDefaults, false);
         });
 
-        function preventDefaults (e) {
-            e.preventDefault();
-            e.stopPropagation();
-        }
-
-        ['dragenter', 'dragover'].forEach(eventName => {
-            dropzone.addEventListener(eventName, highlight, false);
-        });
-
-        ['dragleave', 'drop'].forEach(eventName => {
-            dropzone.addEventListener(eventName, unhighlight, false);
-        });
-
-        function highlight(e) { dropzone.classList.add('dragover'); }
-        function unhighlight(e) { dropzone.classList.remove('dragover'); }
+        function preventDefaults (e) { e.preventDefault(); e.stopPropagation(); }
+        ['dragenter', 'dragover'].forEach(eventName => dropzone.addEventListener(eventName, () => dropzone.classList.add('dragover'), false));
+        ['dragleave', 'drop'].forEach(eventName => dropzone.addEventListener(eventName, () => dropzone.classList.remove('dragover'), false));
 
         dropzone.addEventListener('drop', handleDrop, false);
         fileInput.addEventListener('change', function(e) { handleFiles(this.files); });
@@ -345,181 +231,158 @@
         function handleFiles(files) {
             if (files.length === 0) return;
             const file = files[0];
-            const validExtensions = ['pdf', 'pptx'];
             const fileExtension = file.name.includes('.') ? file.name.split('.').pop().toLowerCase() : '';
 
-            if (!validExtensions.includes(fileExtension)) {
-                showMessage("喔噢！麻糬目前只吃 .pdf 或 .pptx 格式的檔案喔！");
+            if (!['pdf', 'pptx'].includes(fileExtension)) {
+                showMessage("麻糬目前只吃 .pdf 或 .pptx 格式喔！");
                 fileInput.value = ''; 
                 return;
             }
 
+            currentUploadedFile = file; // 記住使用者上傳的真實檔案
             currentFileName.textContent = file.name;
             startProcessingSimulation();
         }
 
-        function resetUIState() {
-            const steps = [document.getElementById('step1'), document.getElementById('step2'), document.getElementById('step3'), document.getElementById('step4')];
-            const spinnerIcon = '<div class="w-8 h-8 flex items-center justify-center bg-mochi-100 rounded-full"><div class="cute-spinner"></div></div>';
-            const pendingIcon = '<div class="w-8 h-8 flex items-center justify-center bg-mochi-100 rounded-full"><i class="ph-bold ph-circle text-mochi-300"></i></div>';
-
-            steps.forEach((s, index) => {
-                if(index === 0) {
-                    s.className = "flex items-center gap-4 text-base font-bold";
-                    s.querySelector('.step-icon').innerHTML = spinnerIcon;
-                    s.querySelector('.step-text').className = "step-text text-choco-900";
-                } else {
-                    s.className = "flex items-center gap-4 text-base font-bold opacity-40 transition-opacity";
-                    s.querySelector('.step-icon').innerHTML = pendingIcon;
-                    s.querySelector('.step-text').className = "step-text text-choco-800";
-                }
-            });
-            progressBar.style.width = '0%';
-        }
-
         function startProcessingSimulation() {
-            clearAllTimeouts(); 
-            resetUIState();     
+            activeTimeouts.forEach(clearTimeout);
+            activeTimeouts = [];
             
             dropzone.classList.add('hidden');
             successArea.classList.add('hidden');
             processingArea.classList.remove('hidden');
             
-            const steps = [document.getElementById('step1'), document.getElementById('step2'), document.getElementById('step3'), document.getElementById('step4')];
+            const steps = [document.getElementById('step1'), document.getElementById('step2'), document.getElementById('step3')];
             const completedIcon = '<div class="w-8 h-8 flex items-center justify-center bg-matcha rounded-full text-white"><i class="ph-bold ph-check text-lg"></i></div>';
             const spinnerIcon = '<div class="w-8 h-8 flex items-center justify-center bg-mochi-100 rounded-full"><div class="cute-spinner"></div></div>';
 
-            activeTimeouts.push(setTimeout(() => { progressBar.style.width = '25%'; }, 100));
+            progressBar.style.width = '20%';
 
             activeTimeouts.push(setTimeout(() => {
                 steps[0].querySelector('.step-icon').innerHTML = completedIcon;
-                steps[0].classList.add('opacity-70');
                 steps[1].classList.remove('opacity-40');
                 steps[1].querySelector('.step-icon').innerHTML = spinnerIcon;
-                steps[1].querySelector('.step-text').classList.add('text-choco-900');
-                steps[1].querySelector('.step-text').classList.remove('text-choco-800');
                 progressBar.style.width = '50%';
-            }, 1800));
+            }, 1000));
 
             activeTimeouts.push(setTimeout(() => {
                 steps[1].querySelector('.step-icon').innerHTML = completedIcon;
-                steps[1].classList.add('opacity-70');
                 steps[2].classList.remove('opacity-40');
                 steps[2].querySelector('.step-icon').innerHTML = spinnerIcon;
-                steps[2].querySelector('.step-text').classList.add('text-choco-900');
-                steps[2].querySelector('.step-text').classList.remove('text-choco-800');
-                progressBar.style.width = '75%';
-            }, 3500));
-
-            activeTimeouts.push(setTimeout(() => {
-                steps[2].querySelector('.step-icon').innerHTML = completedIcon;
-                steps[2].classList.add('opacity-70');
-                steps[3].classList.remove('opacity-40');
-                steps[3].querySelector('.step-icon').innerHTML = spinnerIcon;
-                steps[3].querySelector('.step-text').classList.add('text-choco-900');
-                steps[3].querySelector('.step-text').classList.remove('text-choco-800');
-                progressBar.style.width = '95%';
-            }, 5500));
-
-            activeTimeouts.push(setTimeout(() => {
-                steps[3].querySelector('.step-icon').innerHTML = completedIcon;
-                progressBar.style.width = '100%';
+                progressBar.style.width = '80%';
                 
-                activeTimeouts.push(setTimeout(() => {
-                    processingArea.classList.add('hidden');
-                    successArea.classList.remove('hidden');
-                    
-                    // 開始打包檔案
-                    preparePPTX(currentFileName.textContent);
-                }, 500));
-
-            }, 7000));
+                // 動畫跑到尾聲，開始呼叫真實擷取函數
+                prepareRealPPTX();
+                
+            }, 2500));
         }
 
-        // ==============================================================
-        // 核心功能：使用 PptxGenJS 預先生成 Base64 並綁定到 <a> 標籤
-        // 1. 完全不使用任何 shape 相關函數 (保證不報錯)
-        // 2. 使用 base64 生成，解決所有環境的下載阻擋
-        // ==============================================================
-        async function preparePPTX(originalName) {
+        async function prepareRealPPTX() {
             const downloadBtn = document.getElementById('downloadBtn');
             const sandboxWarning = document.getElementById('sandboxWarning');
-            
-            // 鎖定按鈕狀態
-            downloadBtn.classList.add('opacity-50', 'pointer-events-none');
-            downloadBtn.innerHTML = '<i class="ph-bold ph-spinner animate-spin text-2xl"></i> 檔案打包裝載中...';
-            sandboxWarning.classList.add('hidden');
 
             try {
                 let pres = new PptxGenJS();
                 pres.layout = 'LAYOUT_16x9';
-                
-                // 設定簡報作者屬性
                 pres.author = '王禹硯';
-                pres.company = 'MochiSlide 麻糬簡報';
 
-                let slide = pres.addSlide();
-                slide.background = { color: "FFFDF9" };
+                const fileExt = currentUploadedFile.name.split('.').pop().toLowerCase();
 
-                // 產生可編輯內容
-                slide.addText("✨ 轉換成功！(請點擊我，我是可自由編輯的文字)", {
-                    x: 0.5, y: 0.5, w: 9, h: 1, fontSize: 28, bold: true, color: '4A3B31', fontFace: 'Arial'
-                });
+                // 如果上傳的是 PDF，呼叫真實解析引擎抓取內文
+                if (fileExt === 'pdf') {
+                    const fileData = await currentUploadedFile.arrayBuffer();
+                    
+                    // 初始化 PDF.js
+                    const pdfjsLib = window['pdfjs-dist/build/pdf'];
+                    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
 
-                // 避免使用 options.bullet array 寫法，改用最單純的字串換行與 bullet=true，確保最高相容性
-                slide.addText("1. 所有的文字都已經解開絕對座標，可以像 Word 一樣流暢編輯。\n2. 圖片與圖表皆為獨立物件，可隨意拖拉移動。\n3. 惱人的浮水印已經被 MochiSlide 的 AI 徹底清除了！\n4. 本簡報作者已設定為：王禹硯", {
-                    x: 0.5, y: 1.8, w: 9, h: 2.5, fontSize: 18, color: '5C4A3D', fontFace: 'Arial', lineSpacing: 36, bullet: true
-                });
+                    const pdf = await pdfjsLib.getDocument({data: fileData}).promise;
+                    const totalPages = Math.min(pdf.numPages, 30); // 限制最高30頁
 
-                // 【完全避開 Shape Bug】: 捨棄不穩定的 addShape，直接用 addText 加上 fill 背景色，畫出同樣完美的區塊，保證 100% 成功！
-                slide.addText('這是一張被分離出來的圖\n(試著用滑鼠拖拉移動我吧！)', {
-                    x: 0.5, y: 4.8, w: 4, h: 1.5, fill: { color: '88A07A' },
-                    align: 'center', fontSize: 16, color: 'FFFFFF', bold: true, valign: 'middle'
-                });
+                    // 逐頁抓取真實文字！
+                    for(let i = 1; i <= totalPages; i++) {
+                        const page = await pdf.getPage(i);
+                        const textContent = await page.getTextContent();
+                        
+                        // 將單頁所有擷取到的字串組合成一段
+                        const pageText = textContent.items.map(item => item.str).join(' ');
 
-                slide.addText('無浮水印\n純淨版面', {
-                    x: 5, y: 4.8, w: 2, h: 1.5, fill: { color: 'F4A298' },
-                    align: 'center', fontSize: 16, color: 'FFFFFF', bold: true, valign: 'middle'
-                });
+                        let slide = pres.addSlide();
+                        slide.background = { color: "FFFDF9" };
 
-                // 將檔案轉換為 Data URI 格式，綁定到真正的 <a> 標籤上
-                const finalFileName = `MochiSlide_${originalName.split('.')[0] || 'Document'}_可編輯版.pptx`;
-                
-                // 使用 .then() 避免 await 可能造成的卡死
+                        if (pageText.trim() === '') {
+                            slide.addText('(此頁無純文字或皆為圖片)', {
+                                x: 0.5, y: 2.5, w: 9, h: 1, align: 'center', color: '999999', fontSize: 16
+                            });
+                        } else {
+                            // 將真實擷取的內容寫入 PPTX，如果內容太長就加上省略號避免破版
+                            const shortText = pageText.length > 800 ? pageText.substring(0, 800) + '...' : pageText;
+                            slide.addText(shortText, {
+                                x: 0.5, y: 0.5, w: 9, h: 4.5,
+                                fontSize: 14, color: '5C4A3D', fontFace: 'Arial',
+                                valign: 'top', wrap: true
+                            });
+                        }
+                        
+                        // 每一頁的頁尾都加上你的署名
+                        slide.addText(`第 ${i} 頁 | Created by 王禹硯`, {
+                            x: 0.5, y: 5.2, w: 9, h: 0.5, fontSize: 10, color: '88A07A', align: 'center'
+                        });
+                    }
+                } else {
+                    // 若是 PPTX，前端無法直接拆解，給出說明
+                    let slide = pres.addSlide();
+                    slide.background = { color: "FFFDF9" };
+                    slide.addText("⚠️ 目前為純前端模式", { x: 0.5, y: 1.5, w: 9, h: 1, fontSize: 24, bold: true, color: 'D84C3F', align: 'center' });
+                    slide.addText("GitHub Pages 無法在沒有後端的情況下直接拆解 PPTX 檔案。\n(但如果您上傳的是 PDF，已經可以成功擷取真實文字囉！)", { x: 0.5, y: 2.5, w: 9, h: 2, fontSize: 16, color: '5C4A3D', align: 'center' });
+                    slide.addText(`Created by 王禹硯`, { x: 0.5, y: 5.2, w: 9, h: 0.5, fontSize: 10, color: '88A07A', align: 'center' });
+                }
+
+                // 產生檔案並綁定下載按鈕
+                const originalName = currentUploadedFile.name.split('.')[0] || 'Document';
+                const finalFileName = `MochiSlide_${originalName}_真實內容版.pptx`;
+
                 pres.write({ outputType: "base64" }).then(base64Data => {
-                    const dataUri = "data:application/vnd.openxmlformats-officedocument.presentationml.presentation;base64," + base64Data;
-                    
-                    downloadBtn.href = dataUri;
-                    downloadBtn.download = finalFileName;
-                    downloadBtn.classList.remove('opacity-50', 'pointer-events-none');
-                    downloadBtn.innerHTML = '<i class="ph-bold ph-download-simple text-2xl"></i> 立即下載 PPTX';
-                    
-                    // 顯示防呆警告
-                    sandboxWarning.classList.remove('hidden');
-                    
-                    showMessage("檔案已準備完畢！", false);
-                }).catch(err => {
-                    throw err; // 丟給外層 catch 處理
-                });
+                    document.getElementById('step3').querySelector('.step-icon').innerHTML = '<div class="w-8 h-8 flex items-center justify-center bg-matcha rounded-full text-white"><i class="ph-bold ph-check text-lg"></i></div>';
+                    progressBar.style.width = '100%';
+
+                    setTimeout(() => {
+                        processingArea.classList.add('hidden');
+                        successArea.classList.remove('hidden');
+                        
+                        const dataUri = "data:application/vnd.openxmlformats-officedocument.presentationml.presentation;base64," + base64Data;
+                        downloadBtn.href = dataUri;
+                        downloadBtn.download = finalFileName;
+                        downloadBtn.classList.remove('opacity-50', 'pointer-events-none');
+                        downloadBtn.innerHTML = '<i class="ph-bold ph-download-simple text-2xl"></i> 立即下載您的專屬 PPTX';
+                        sandboxWarning.classList.remove('hidden');
+                        showMessage("真實內容擷取完畢！", false);
+                    }, 500);
+
+                }).catch(e => { throw e; });
 
             } catch (error) {
-                console.error("生成 PPTX 發生錯誤:", error);
+                console.error(error);
+                showMessage("讀取真實檔案內容時發生錯誤！", true);
+                processingArea.classList.add('hidden');
+                successArea.classList.remove('hidden');
                 downloadBtn.innerHTML = '<i class="ph-bold ph-warning text-2xl"></i> 產生失敗，請重試';
-                sandboxWarning.classList.add('hidden');
-                showMessage("喔噢！產生簡報時發生了一點小錯誤，請再試一次！");
             }
         }
 
         function resetApp() {
             fileInput.value = ''; 
-            clearAllTimeouts();   
-            resetUIState();       
+            currentUploadedFile = null;
+            activeTimeouts.forEach(clearTimeout);
+            activeTimeouts = [];
             
-            const downloadBtn = document.getElementById('downloadBtn');
-            const sandboxWarning = document.getElementById('sandboxWarning');
-            downloadBtn.href = "#";
-            downloadBtn.removeAttribute('download');
-            sandboxWarning.classList.add('hidden');
+            // UI Reset
+            const steps = [document.getElementById('step1'), document.getElementById('step2'), document.getElementById('step3')];
+            steps.forEach((s, index) => {
+                s.className = index === 0 ? "flex items-center gap-4 text-base font-bold" : "flex items-center gap-4 text-base font-bold opacity-40 transition-opacity";
+                s.querySelector('.step-icon').innerHTML = index === 0 ? '<div class="w-8 h-8 flex items-center justify-center bg-mochi-100 rounded-full"><div class="cute-spinner"></div></div>' : '<div class="w-8 h-8 flex items-center justify-center bg-mochi-100 rounded-full"><i class="ph-bold ph-circle text-mochi-300"></i></div>';
+            });
+            progressBar.style.width = '0%';
             
             successArea.classList.add('hidden');
             processingArea.classList.add('hidden');
