@@ -43,7 +43,7 @@
     </script>
 
     <style>
-        body { background-color: #FFFDF9; color: #5C4A3D; }
+        body { background-color: #FFFDF9; color: #5C4A3D; scroll-behavior: smooth; }
         .upload-dashed-border {
             background-image: url("data:image/svg+xml,%3csvg width='100%25' height='100%25' xmlns='http://www.w3.org/2000/svg'%3e%3crect width='100%25' height='100%25' fill='none' rx='32' ry='32' stroke='%23E8D5C4' stroke-width='3' stroke-dasharray='12%2c 12' stroke-dashoffset='0' stroke-linecap='round'/%3e%3c/svg%3e");
             border-radius: 32px; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -67,26 +67,33 @@
         <span id="toastText">訊息提示</span>
     </div>
 
+    <!-- Header -->
     <header class="w-full py-6 px-8 flex justify-between items-center max-w-6xl mx-auto">
-        <div class="flex items-center gap-2 text-choco-900 group cursor-pointer" onclick="location.reload()">
+        <div class="flex items-center gap-2 text-choco-900 group cursor-pointer" onclick="window.scrollTo(0,0)">
             <div class="bg-matcha text-white p-2 rounded-2xl group-hover:rotate-12 transition-transform duration-300">
                 <i class="ph-bold ph-ghost text-2xl"></i>
             </div>
             <span class="font-rounded font-extrabold text-2xl tracking-wide">MochiSlide</span>
         </div>
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-4">
+            <a href="#features" class="hidden sm:block text-choco-800 font-bold hover:text-matcha transition-colors">產品特色</a>
+            <a href="#compare" class="hidden sm:block text-choco-800 font-bold hover:text-matcha transition-colors">優勢比較</a>
             <button onclick="openSettings()" class="p-2.5 bg-mochi-100 hover:bg-mochi-200 rounded-full text-choco-800 transition-colors border border-mochi-200" title="配置後端 API 網址">
                 <i class="ph-bold ph-gear-six text-xl"></i>
             </button>
-            <div class="px-4 py-2 bg-mochi-100 rounded-full text-sm text-choco-800 font-bold border border-mochi-200">
-                免登入・智慧轉換 ✨
-            </div>
         </div>
     </header>
 
-    <main class="flex-grow flex flex-col items-center px-4 sm:px-6 w-full max-w-5xl mx-auto">
+    <main class="flex-grow flex flex-col items-center w-full">
         
-        <section class="text-center mt-10 mb-10 animate-fade-in">
+        <!-- Hero Section -->
+        <section class="text-center mt-10 mb-10 px-4 sm:px-6 w-full max-w-5xl mx-auto animate-fade-in">
+            <div class="flex flex-wrap justify-center gap-3 mb-6">
+                <span class="px-4 py-1.5 bg-mochi-200 text-choco-800 text-sm font-bold rounded-full flex items-center gap-1.5 shadow-sm"><i class="ph-bold ph-lock-key-open text-matcha"></i> 免費免登入</span>
+                <span class="px-4 py-1.5 bg-mochi-200 text-choco-800 text-sm font-bold rounded-full flex items-center gap-1.5 shadow-sm"><i class="ph-bold ph-eraser text-peach"></i> AI 抹除浮水印</span>
+                <span class="px-4 py-1.5 bg-mochi-200 text-choco-800 text-sm font-bold rounded-full flex items-center gap-1.5 shadow-sm"><i class="ph-bold ph-text-aa text-blue-400"></i> 文字原生排版</span>
+            </div>
+            
             <h1 class="text-4xl md:text-5xl lg:text-6xl font-rounded font-extrabold text-choco-900 leading-[1.3] mb-6">
                 把硬梆梆的 PDF <br class="hidden md:block"/>
                 變成 <span class="relative inline-block px-2">
@@ -94,13 +101,14 @@
                     <span class="absolute bottom-2 left-0 w-full h-4 bg-matcha/20 -z-10 rounded-full"></span>
                 </span> 智慧簡報
             </h1>
-            <p class="text-lg text-choco-800 max-w-2xl mx-auto font-medium leading-relaxed opacity-90">
+            <p class="text-lg text-choco-800 max-w-2xl mx-auto font-medium leading-relaxed opacity-90 mb-10">
                 自動過濾 NotebookLM 背景格線與浮水印文字。<br/>
                 轉換後的簡報可以自由打字、換行、移動圖表，就是這麼神奇！
             </p>
         </section>
 
-        <section class="w-full max-w-3xl mb-20 animate-fade-in" style="animation-delay: 0.2s;">
+        <!-- Dropzone Section -->
+        <section class="w-full max-w-3xl mb-32 px-4 sm:px-6 animate-fade-in" style="animation-delay: 0.2s;">
             <div id="dropzone" class="upload-dashed-border bg-white cursor-pointer relative p-12 md:p-24 flex flex-col items-center justify-center text-center group hover:bg-mochi-50">
                 <input type="file" id="fileInput" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" accept=".pdf" title="">
                 
@@ -110,6 +118,9 @@
                 
                 <h3 class="pointer-events-none text-2xl font-rounded font-extrabold text-choco-900 mb-3">把簡報檔案丟進來吧！</h3>
                 <p class="pointer-events-none text-choco-800 opacity-70 font-bold mb-4">支援包含文字層的 PDF (點擊或拖曳皆可)</p>
+                <div class="pointer-events-none bg-mochi-100 px-4 py-2 rounded-full text-xs text-choco-800 font-bold border border-mochi-200">
+                    💡 支援檔案大小 30MB 內，單次最高處理 30 頁
+                </div>
             </div>
 
             <!-- 進度追蹤區塊 -->
@@ -136,11 +147,14 @@
                 </div>
             </div>
 
+            <!-- 成功區塊 -->
             <div id="successArea" class="hidden bg-white border-2 border-matcha/30 rounded-[2rem] p-12 shadow-xl shadow-matcha/10 mt-8 text-center flex flex-col items-center relative overflow-hidden">
+                <div class="absolute -top-10 -right-10 text-matcha opacity-10 rotate-12"><i class="ph-fill ph-confetti text-9xl"></i></div>
                 <div class="w-20 h-20 bg-matcha text-white rounded-full flex items-center justify-center mb-5 shadow-lg shadow-matcha/40">
                     <i class="ph-bold ph-check text-4xl"></i>
                 </div>
                 <h4 class="font-rounded font-extrabold text-3xl text-choco-900 mb-3">轉換大成功！</h4>
+                <p class="text-choco-800 font-bold opacity-80 mb-8 max-w-sm">您的檔案已被完美去浮水印，並已轉換為原生 PowerPoint 檔案！</p>
                 <a id="downloadBtn" href="#" class="bg-matcha hover:bg-matcha-hover text-white px-10 py-4 rounded-full font-extrabold text-lg transition-all flex items-center gap-3 shadow-xl shadow-matcha/30 hover:-translate-y-1 hover:shadow-2xl">
                     <i class="ph-bold ph-download-simple text-2xl"></i> 立即下載 PPTX
                 </a>
@@ -148,18 +162,128 @@
             </div>
         </section>
 
-        <!-- 設定視窗 -->
+        <!-- Features Section (優勢介紹) -->
+        <section id="features" class="w-full bg-mochi-100/50 border-y border-mochi-200 py-24 px-4 sm:px-6">
+            <div class="max-w-6xl mx-auto">
+                <div class="text-center mb-16">
+                    <h2 class="text-3xl md:text-4xl font-rounded font-extrabold text-choco-900 mb-4">為什麼選擇 MochiSlide？</h2>
+                    <p class="text-choco-800 font-bold opacity-80 max-w-2xl mx-auto">我們專為修復與還原 AI 生成簡報而生，解決傳統轉檔工具無法處理的痛點。</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <!-- Feature 1 -->
+                    <div class="bg-white p-10 rounded-[2.5rem] border border-mochi-200 shadow-sm hover:shadow-lg hover:-translate-y-2 transition-all duration-300 group">
+                        <div class="w-16 h-16 bg-mochi-100 text-choco-900 rounded-3xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                            <i class="ph-bold ph-text-t text-4xl"></i>
+                        </div>
+                        <h3 class="font-rounded font-extrabold text-2xl text-choco-900 mb-4">文字框完美還原</h3>
+                        <p class="text-base text-choco-800 leading-relaxed font-bold opacity-80">
+                            透過最強大的 Google Gemini AI 進行深度語意分析，將原本在 PDF 裡打碎、斷行的零散字串，重新組合為能夠正常打字、換行的智慧文字方塊。
+                        </p>
+                    </div>
+                    <!-- Feature 2 -->
+                    <div class="bg-white p-10 rounded-[2.5rem] border border-mochi-200 shadow-sm hover:shadow-lg hover:-translate-y-2 transition-all duration-300 group">
+                        <div class="w-16 h-16 bg-mochi-100 text-peach rounded-3xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                            <i class="ph-bold ph-eraser text-4xl"></i>
+                        </div>
+                        <h3 class="font-rounded font-extrabold text-2xl text-choco-900 mb-4">完美去背景格線</h3>
+                        <p class="text-base text-choco-800 leading-relaxed font-bold opacity-80">
+                            利用伺服器後端的圖像面積分析技術，徹底抹除 NotebookLM 經典的「淡灰色背景格線」以及「CONFIDENTIAL」等各種破壞畫面的頑固浮水印。
+                        </p>
+                    </div>
+                    <!-- Feature 3 -->
+                    <div class="bg-white p-10 rounded-[2.5rem] border border-mochi-200 shadow-sm hover:shadow-lg hover:-translate-y-2 transition-all duration-300 group">
+                        <div class="w-16 h-16 bg-mochi-100 text-blue-500 rounded-3xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                            <i class="ph-bold ph-bounding-box text-4xl"></i>
+                        </div>
+                        <h3 class="font-rounded font-extrabold text-2xl text-choco-900 mb-4">圖片物件全解鎖</h3>
+                        <p class="text-base text-choco-800 leading-relaxed font-bold opacity-80">
+                            精準辨識並剪裁簡報中的晶片圖、架構圖或示意圖，保留為獨立的圖片元件。插入 PPTX 後，所有圖片都可以隨意拖曳、自由調整大小。
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Comparison Section (比較表) -->
+        <section id="compare" class="w-full py-24 px-4 sm:px-6">
+            <div class="max-w-5xl mx-auto">
+                <div class="text-center mb-16">
+                    <h2 class="text-3xl md:text-4xl font-rounded font-extrabold text-choco-900 mb-4">和其他網站的比較</h2>
+                    <p class="text-choco-800 font-bold opacity-80 max-w-2xl mx-auto">沒有比較沒有傷害，看看 MochiSlide 如何徹底改變你的簡報工作流。</p>
+                </div>
+
+                <div class="bg-white rounded-[2.5rem] border-2 border-mochi-200 overflow-hidden shadow-xl">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse min-w-[600px]">
+                            <thead>
+                                <tr class="bg-mochi-100">
+                                    <th class="p-6 font-rounded font-extrabold text-xl text-choco-900 border-b-2 border-mochi-200 w-1/3">轉換痛點</th>
+                                    <th class="p-6 font-rounded font-extrabold text-xl border-b-2 border-mochi-200 text-choco-800/50 w-1/3">傳統 PDF 轉檔工具</th>
+                                    <th class="p-6 font-rounded font-extrabold text-xl border-b-2 border-matcha text-matcha bg-matcha/5 w-1/3 relative overflow-hidden">
+                                        <div class="absolute -right-4 -top-4 text-matcha opacity-10 rotate-12"><i class="ph-fill ph-sparkle text-6xl"></i></div>
+                                        <span class="relative z-10">MochiSlide</span>
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody class="text-choco-800 font-bold text-base">
+                                <tr class="border-b border-mochi-100 hover:bg-mochi-50 transition-colors">
+                                    <td class="p-6">背景格線與浮水印</td>
+                                    <td class="p-6 opacity-60 flex items-center gap-2"><i class="ph-fill ph-x-circle text-red-400 text-xl"></i> 原封不動保留</td>
+                                    <td class="p-6 bg-matcha/5 text-choco-900"><div class="flex items-center gap-2"><i class="ph-fill ph-check-circle text-matcha text-xl"></i> 自動精準抹除</div></td>
+                                </tr>
+                                <tr class="border-b border-mochi-100 hover:bg-mochi-50 transition-colors">
+                                    <td class="p-6">文字段落編輯</td>
+                                    <td class="p-6 opacity-60 flex items-center gap-2"><i class="ph-fill ph-x-circle text-red-400 text-xl"></i> 變成死圖片或亂碼</td>
+                                    <td class="p-6 bg-matcha/5 text-choco-900"><div class="flex items-center gap-2"><i class="ph-fill ph-check-circle text-matcha text-xl"></i> 完美還原，可自由打字</div></td>
+                                </tr>
+                                <tr class="border-b border-mochi-100 hover:bg-mochi-50 transition-colors">
+                                    <td class="p-6">圖表與架構圖</td>
+                                    <td class="p-6 opacity-60 flex items-center gap-2"><i class="ph-fill ph-x-circle text-red-400 text-xl"></i> 黏在背景無法移動</td>
+                                    <td class="p-6 bg-matcha/5 text-choco-900"><div class="flex items-center gap-2"><i class="ph-fill ph-check-circle text-matcha text-xl"></i> 獨立元件，可任意拖曳縮放</div></td>
+                                </tr>
+                                <tr class="hover:bg-mochi-50 transition-colors">
+                                    <td class="p-6">使用費用</td>
+                                    <td class="p-6 opacity-60 flex items-center gap-2"><i class="ph-fill ph-x-circle text-red-400 text-xl"></i> 需訂閱付費或有頁數限制</td>
+                                    <td class="p-6 bg-matcha/5 text-matcha text-lg font-extrabold"><div class="flex items-center gap-2"><i class="ph-fill ph-check-circle text-matcha text-xl"></i> 100% 永久免費</div></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Settings Modal -->
         <div id="settingsModal" class="fixed inset-0 bg-choco-900/40 backdrop-blur-sm z-50 flex items-center justify-center hidden">
             <div class="bg-white rounded-[2rem] border-4 border-mochi-200 p-8 w-full max-w-md mx-4 shadow-2xl relative animate-pop-in">
                 <button onclick="closeSettings()" class="absolute top-6 right-6 text-choco-800 hover:text-peach transition-colors"><i class="ph-bold ph-x text-2xl"></i></button>
                 <h3 class="font-rounded font-extrabold text-2xl text-choco-900 mb-4 flex items-center gap-2"><i class="ph-fill ph-gear-six text-matcha"></i> 伺服器設定</h3>
+                <p class="text-sm font-bold text-choco-800/80 leading-relaxed mb-6">請輸入您部署在 Render 的 Python 後端 API 網址：</p>
                 <input type="url" id="backendUrlInput" placeholder="https://your-backend.onrender.com" class="w-full px-4 py-3 bg-mochi-50 rounded-2xl border-2 border-mochi-200 focus:border-matcha outline-none font-bold text-sm text-choco-900 transition-colors">
                 <div class="mt-8 flex gap-3">
+                    <button onclick="closeSettings()" class="flex-1 py-3 bg-mochi-100 hover:bg-mochi-200 text-choco-800 font-extrabold rounded-2xl transition-colors">取消</button>
                     <button onclick="saveSettings()" class="flex-1 py-3 bg-matcha hover:bg-matcha-hover text-white font-extrabold rounded-2xl transition-all shadow-md shadow-matcha/20">儲存設定</button>
                 </div>
             </div>
         </div>
     </main>
+
+    <!-- Footer -->
+    <footer class="w-full bg-mochi-100 border-t border-mochi-200 py-12 px-6 mt-auto">
+        <div class="max-w-4xl mx-auto text-sm text-choco-800 font-bold space-y-4">
+            <div class="flex items-start gap-3">
+                <i class="ph-fill ph-shield-check text-matcha text-xl mt-0.5"></i>
+                <div>
+                    <h4 class="font-extrabold text-choco-900 mb-1">隱私最安心</h4>
+                    <p class="opacity-80 leading-relaxed">我們採用「客戶端-伺服器」加密通訊。檔案僅在記憶體中進行 AI 分析，轉換完成即刻銷毀殘留，安全乾淨，決不挪用。</p>
+                </div>
+            </div>
+            <div class="pt-8 border-t border-mochi-200 text-center text-xs opacity-70">
+                Created by 王禹硯 | © 2026 MochiSlide (麻糬簡報). All rights reserved.
+            </div>
+        </div>
+    </footer>
 
     <script>
         const dropzone = document.getElementById('dropzone');
@@ -231,7 +355,6 @@
                 const formData = new FormData();
                 formData.append('file', file);
                 
-                // 注意：這裡改為呼叫 /api/upload
                 const uploadRes = await fetch(`${backendUrl}/api/upload`, { method: 'POST', body: formData });
                 if (!uploadRes.ok) throw new Error("上傳失敗");
                 
@@ -249,7 +372,7 @@
                         throw new Error(statusData.error);
                     }
 
-                    // 即時更新進度文字給使用者看！
+                    // 即時更新進度文字給使用者看
                     progressStatusText.textContent = statusData.progress;
 
                     // 動態計算進度條長度
