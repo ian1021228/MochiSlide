@@ -1,180 +1,141 @@
-import os
-import io
-import re
-import traceback
-import uuid
-from urllib.parse import quote
-from fastapi import FastAPI, UploadFile, File, HTTPException, Request, BackgroundTasks
-from fastapi.responses import StreamingResponse, JSONResponse
-from fastapi.middleware.cors import CORSMiddleware
-import fitz  # PyMuPDF
-from pptx import Presentation
-from pptx.util import Inches, Pt
-from pptx.dml.color import RGBColor
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MochiSlide 麻糬簡報 | 完美去水版</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍡</text></svg>">
+    <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700;800&family=Nunito:wght@400;700;800&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: { extend: { colors: { mochi: { 100: '#FDF8F0', 200: '#F5EBE0' }, choco: { 800: '#5C4A3D', 900: '#4A3B31' }, matcha: { DEFAULT: '#88A07A', hover: '#738C66' }, peach: { DEFAULT: '#F4A298' } }, fontFamily: { sans: ['Nunito', '"M PLUS Rounded 1c"', 'sans-serif'], rounded: ['"M PLUS Rounded 1c"', 'sans-serif'] } } }
+        }
+    </script>
+    <style>
+        body { background-color: #FFFDF9; color: #5C4A3D; }
+        .upload-dashed-border { border-radius: 32px; border: 3px dashed #E8D5C4; transition: all 0.3s; }
+        .upload-dashed-border.dragover { border-color: #88A07A; background-color: #FDF8F0; transform: scale(1.02); }
+        .cute-spinner { width: 24px; height: 24px; border: 4px solid rgba(136,160,122,0.2); border-top-color: #88A07A; border-radius: 50%; animation: spin 1s infinite linear; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="antialiased min-h-screen flex flex-col items-center p-6">
+    <div id="toast" class="fixed top-6 right-6 z-50 bg-choco-900 text-white px-6 py-3 rounded-2xl shadow-xl font-bold transition-all transform translate-y-[-100px] opacity-0"><span id="toastText">訊息</span></div>
+    
+    <header class="w-full max-w-5xl flex justify-between items-center py-6 mb-10">
+        <div class="flex items-center gap-2 font-rounded font-extrabold text-2xl"><div class="bg-matcha text-white p-2 rounded-2xl"><i class="ph-bold ph-ghost"></i></div> MochiSlide</div>
+        <button onclick="document.getElementById('settingsModal').classList.remove('hidden')" class="p-2.5 bg-mochi-100 rounded-full hover:bg-mochi-200"><i class="ph-bold ph-gear-six text-xl"></i></button>
+    </header>
 
-app = FastAPI(title="MochiSlide Backend")
+    <main class="w-full max-w-3xl flex flex-col items-center">
+        <h1 class="text-4xl md:text-5xl font-rounded font-extrabold text-choco-900 text-center mb-6 leading-tight">把 PDF 變成<br><span class="text-matcha">軟QQ的</span> 智慧簡報</h1>
+        <p class="text-choco-800 text-center font-bold mb-10 opacity-80">100% 幾何拆解。保留背景，文字全解鎖，浮水印徹底消失。</p>
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+        <div id="dropzone" onclick="document.getElementById('fileInput').click()" class="upload-dashed-border w-full bg-white cursor-pointer p-16 flex flex-col items-center text-center hover:bg-mochi-50">
+            <input type="file" id="fileInput" class="hidden" accept=".pdf">
+            <div class="w-20 h-20 bg-mochi-100 text-matcha rounded-[2rem] flex items-center justify-center mb-6"><i class="ph-bold ph-cloud-arrow-up text-4xl"></i></div>
+            <h3 class="text-2xl font-rounded font-extrabold text-choco-900">把 PDF 檔案丟進來吧！</h3>
+        </div>
 
-TASKS = {}
+        <div id="processingArea" class="hidden w-full bg-white border-2 border-mochi-200 rounded-[2rem] p-10 mt-8 shadow-lg relative overflow-hidden">
+            <div class="absolute top-0 left-0 w-full h-2 bg-mochi-200"><div id="progressBar" class="h-full bg-matcha w-0 transition-all"></div></div>
+            <div class="flex items-center gap-4 mb-6">
+                <div class="p-4 bg-mochi-100 rounded-2xl text-matcha"><i class="ph-fill ph-magic-wand text-3xl animate-pulse"></i></div>
+                <div><h4 class="font-rounded font-extrabold text-xl text-choco-900">幾何拆解中...</h4><p class="text-sm font-bold text-choco-800 opacity-70" id="currentFileName">file.pdf</p></div>
+            </div>
+            <div class="flex items-center gap-3 font-bold"><div class="cute-spinner"></div><span id="progressStatusText" class="text-choco-900">喚醒伺服器...</span></div>
+        </div>
 
-@app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
-    error_detail = str(exc)
-    print(f"🔥 後端崩潰: {traceback.format_exc()}")
-    return JSONResponse(status_code=500, content={"detail": error_detail})
+        <div id="successArea" class="hidden w-full bg-white border-2 border-matcha/30 rounded-[2rem] p-12 mt-8 text-center flex flex-col items-center">
+            <div class="w-20 h-20 bg-matcha text-white rounded-full flex items-center justify-center mb-5"><i class="ph-bold ph-check text-4xl"></i></div>
+            <h4 class="font-rounded font-extrabold text-3xl text-choco-900 mb-3">拆解大成功！</h4>
+            <a id="downloadBtn" href="#" class="bg-matcha hover:bg-matcha-hover text-white px-10 py-4 rounded-full font-extrabold text-lg mt-6 shadow-xl flex gap-2"><i class="ph-bold ph-download-simple text-2xl"></i> 下載 PPTX</a>
+            <button onclick="location.reload()" class="mt-6 text-sm font-bold text-choco-800 underline hover:text-matcha">再轉換一份</button>
+        </div>
+    </main>
 
-@app.get("/")
-def read_root():
-    return {
-        "message": "Backend is running!",
-        "version": "v_clear_watermark_999",
-        "note": "終極去浮水印拆解引擎上線！"
-    }
+    <div id="settingsModal" class="fixed inset-0 bg-choco-900/40 z-50 flex items-center justify-center hidden">
+        <div class="bg-white rounded-[2rem] p-8 w-full max-w-md mx-4 shadow-2xl">
+            <h3 class="font-rounded font-extrabold text-2xl text-choco-900 mb-4">伺服器設定</h3>
+            <input type="url" id="backendUrlInput" placeholder="https://your-backend.onrender.com" class="w-full px-4 py-3 bg-mochi-50 rounded-2xl border-2 border-mochi-200 outline-none font-bold text-choco-900">
+            <div class="mt-8 flex gap-3">
+                <button onclick="document.getElementById('settingsModal').classList.add('hidden')" class="flex-1 py-3 bg-mochi-100 text-choco-800 font-extrabold rounded-2xl">取消</button>
+                <button onclick="saveSettings()" class="flex-1 py-3 bg-matcha text-white font-extrabold rounded-2xl">儲存</button>
+            </div>
+        </div>
+    </div>
 
-def process_pdf_task(task_id: str, file_bytes: bytes, filename: str):
-    try:
-        pdf_doc = fitz.open(stream=file_bytes, filetype="pdf")
-        total_pages = min(len(pdf_doc), 30)
+    <script>
+        const fileInput = document.getElementById('fileInput');
+        const processingArea = document.getElementById('processingArea');
+        const successArea = document.getElementById('successArea');
+        const dropzone = document.getElementById('dropzone');
         
-        TASKS[task_id]["total"] = total_pages
-        TASKS[task_id]["progress"] = f"啟動圖層拆解... 共 {total_pages} 頁"
+        window.onload = () => {
+            const url = localStorage.getItem('mochislide_backend_url');
+            if(url) document.getElementById('backendUrlInput').value = url;
+            else document.getElementById('settingsModal').classList.remove('hidden');
+        };
 
-        prs = Presentation()
-        prs.slide_width = Inches(13.333)
-        prs.slide_height = Inches(7.5)
-        
-        for page_idx in range(total_pages):
-            TASKS[task_id]["current"] = page_idx + 1
-            TASKS[task_id]["progress"] = f"⚡ 正在抽取純淨圖層與文字 (第 {page_idx + 1} / {total_pages} 頁)..."
+        function showToast(msg) {
+            document.getElementById('toastText').textContent = msg;
+            const t = document.getElementById('toast');
+            t.style.transform = 'translateY(0)'; t.style.opacity = '1';
+            setTimeout(() => { t.style.transform = 'translateY(-100px)'; t.style.opacity = '0'; }, 3000);
+        }
 
-            page = pdf_doc[page_idx]
-            pdf_w = page.rect.width
-            pdf_h = page.rect.height
-            if pdf_w == 0 or pdf_h == 0: continue
-                
-            scale_x = prs.slide_width / pdf_w
-            scale_y = prs.slide_height / pdf_h
+        function saveSettings() {
+            let url = document.getElementById('backendUrlInput').value.trim();
+            if(url.endsWith('/')) url = url.slice(0, -1);
+            localStorage.setItem('mochislide_backend_url', url);
+            document.getElementById('settingsModal').classList.add('hidden');
+            showToast("設定已儲存！");
+        }
 
-            slide = prs.slides.add_slide(prs.slide_layouts[6])
+        dropzone.ondragover = (e) => { e.preventDefault(); dropzone.classList.add('dragover'); };
+        dropzone.ondragleave = (e) => { e.preventDefault(); dropzone.classList.remove('dragover'); };
+        dropzone.ondrop = (e) => { e.preventDefault(); dropzone.classList.remove('dragover'); handle(e.dataTransfer.files); };
+        fileInput.onchange = (e) => handle(e.target.files);
 
-            # 1. 抓取背景顏色
-            bg_color = (255, 255, 255)
-            max_area = 0
-            for d in page.get_drawings():
-                if d.get("fill"):
-                    rect = d["rect"]
-                    area = rect.width * rect.height
-                    if area > max_area and area > (pdf_w * pdf_h * 0.5):
-                        max_area = area
-                        c = d["fill"]
-                        if len(c) == 3: bg_color = (int(c[0]*255), int(c[1]*255), int(c[2]*255))
-            
-            slide.background.fill.solid()
-            slide.background.fill.fore_color.rgb = RGBColor(*bg_color)
+        async function handle(files) {
+            if(!files.length) return;
+            const file = files[0];
+            const url = localStorage.getItem('mochislide_backend_url');
+            if(!url) return document.getElementById('settingsModal').classList.remove('hidden');
 
-            # 2. 抽取純淨圖片 (不含 PDF 文字)
-            try:
-                for img_info in page.get_images(full=True):
-                    xref = img_info[0]
-                    rects = page.get_image_rects(xref)
-                    if not rects: continue
-                    try:
-                        pix = fitz.Pixmap(pdf_doc, xref)
-                        if pix.n - pix.alpha > 3 or pix.colorspace.name not in ["DeviceRGB", "DeviceGray"]:
-                            pix = fitz.Pixmap(fitz.csRGB, pix)
-                        img_bytes = pix.tobytes("png")
-                        pix = None
-                        
-                        for rect in rects:
-                            left, top = int(rect.x0 * scale_x), int(rect.y0 * scale_y)
-                            width, height = int(rect.width * scale_x), int(rect.height * scale_y)
-                            if width > Inches(0.1) and height > Inches(0.1):
-                                slide.shapes.add_picture(io.BytesIO(img_bytes), left, top, width, height)
-                    except Exception: pass
-            except Exception: pass
+            dropzone.classList.add('hidden'); processingArea.classList.remove('hidden');
+            document.getElementById('currentFileName').textContent = file.name;
 
-            # 3. 抽取活體文字並消除浮水印
-            text_dict = page.get_text("dict")
-            for block in text_dict.get("blocks", []):
-                if block["type"] == 0: 
-                    for line in block.get("lines", []):
-                        # 🔪 看到這兩個字眼，直接刪除，絕對不會出現在簡報上！
-                        line_text = "".join([s["text"] for s in line.get("spans", [])]).lower()
-                        if "notebooklm" in line_text or "confidential" in line_text:
-                            continue 
-                            
-                        x0, y0, x1, y1 = line["bbox"]
-                        left, top = int(x0 * scale_x), int(y0 * scale_y) - Inches(0.02)
-                        width, height = int((x1 - x0) * scale_x) + Inches(0.5), int((y1 - y0) * scale_y) + Inches(0.1)
-                        if width <= 0 or height <= 0: continue
-                            
-                        txBox = slide.shapes.add_textbox(left, top, width, height)
-                        tf = txBox.text_frame
-                        tf.word_wrap = False
-                        tf.margin_bottom = tf.margin_left = tf.margin_right = tf.margin_top = 0
-                        p = tf.paragraphs[0]
-                        p.space_before = p.space_after = Pt(0)
-                        
-                        for span in line.get("spans", []):
-                            text = span.get("text", "")
-                            if not text.strip() and not text.isspace(): continue
-                                
-                            run = p.add_run()
-                            run.text = text
-                            run.font.size = Pt(span.get("size", 12) * (7.5 * 72 / pdf_h))
-                            
-                            flags = span.get("flags", 0)
-                            if flags & 2: run.font.italic = True
-                            if flags & 16: run.font.bold = True
-                            
-                            color = span.get("color", 0)
-                            if isinstance(color, int):
-                                b, g, r = color & 0xFF, (color >> 8) & 0xFF, (color >> 16) & 0xFF
-                                run.font.color.rgb = RGBColor(max(0, min(255, r)), max(0, min(255, g)), max(0, min(255, b)))
-                            
-                            font_name = span.get("font", "Arial").lower()
-                            run.font.name = "Microsoft JhengHei" if "hei" in font_name or "黑" in font_name else "Arial"
+            try {
+                const fd = new FormData(); fd.append('file', file);
+                const upRes = await fetch(`${url}/api/upload`, { method: 'POST', body: fd });
+                const { task_id } = await upRes.json();
 
-        TASKS[task_id]["progress"] = "✅ 拆解完畢！正在打包 PPTX..."
-        pptx_io = io.BytesIO()
-        prs.save(pptx_io)
-        TASKS[task_id]["status"] = "completed"
-        TASKS[task_id]["file_data"] = pptx_io.getvalue()
-
-    except Exception as e:
-        TASKS[task_id]["status"] = "error"
-        TASKS[task_id]["error"] = str(e)
-
-@app.post("/api/upload")
-async def upload_pdf(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
-    file_bytes = await file.read()
-    task_id = str(uuid.uuid4())
-    TASKS[task_id] = {"status": "processing", "progress": "準備拆解...", "current": 0, "total": 0, "filename": file.filename, "file_data": None, "error": None}
-    background_tasks.add_task(process_pdf_task, task_id, file_bytes, file.filename)
-    return {"task_id": task_id}
-
-@app.get("/api/status/{task_id}")
-def get_status(task_id: str):
-    return TASKS.get(task_id, {"status": "error", "error": "Task not found"})
-
-@app.get("/api/download/{task_id}")
-def download_pptx(task_id: str):
-    task = TASKS[task_id]
-    # 🚨 鐵證檔名：這次下載的檔案一定會叫 _完美去水版.pptx
-    filename = task["filename"].replace('.pdf', '_完美去水版.pptx')
-    return StreamingResponse(
-        io.BytesIO(task["file_data"]), 
-        media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
-        headers={"Content-Disposition": f"attachment; filename*=utf-8''{quote(filename)}"}
-    )
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("app:app", host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))
+                let polling = true;
+                while(polling) {
+                    await new Promise(r => setTimeout(r, 1000));
+                    const st = await (await fetch(`${url}/api/status/${task_id}`)).json();
+                    document.getElementById('progressStatusText').textContent = st.progress;
+                    if(st.total > 0) document.getElementById('progressBar').style.width = `${20 + (st.current/st.total*80)}%`;
+                    
+                    if(st.status === 'completed') {
+                        polling = false;
+                        const dl = await fetch(`${url}/api/download/${task_id}`);
+                        const blob = await dl.blob();
+                        const btn = document.getElementById('downloadBtn');
+                        btn.href = URL.createObjectURL(blob);
+                        // 🚨 鐵證防護：前端也鎖死檔名
+                        btn.download = file.name.replace('.pdf', '_完美去水版.pptx');
+                        processingArea.classList.add('hidden'); successArea.classList.remove('hidden');
+                    } else if(st.status === 'error') throw new Error(st.error);
+                }
+            } catch(e) {
+                showToast("失敗: " + e.message);
+                setTimeout(() => location.reload(), 2000);
+            }
+        }
+    </script>
+</body>
+</html>
