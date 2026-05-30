@@ -159,7 +159,7 @@
             </div>
         </section>
 
-        <!-- Features Section (優勢介紹重磅回歸！) -->
+        <!-- Features Section (優勢介紹) -->
         <section id="features" class="w-full bg-mochi-100/50 border-y border-mochi-200 py-24 px-4 sm:px-6">
             <div class="max-w-6xl mx-auto">
                 <div class="text-center mb-16">
@@ -183,7 +183,7 @@
                         </div>
                         <h3 class="font-rounded font-extrabold text-2xl text-choco-900 mb-4">自動抹除浮水印</h3>
                         <p class="text-base text-choco-800 leading-relaxed font-bold opacity-80">
-                            精準識別並過濾 NotebookLM 或 Confidential 等惱人的浮水印文字，讓您的簡報乾淨俐落。
+                            精準識別並使用智慧環境色塗抹 NotebookLM 或 Confidential 等惱人的浮水印，讓簡報乾淨俐落。
                         </p>
                     </div>
                     <div class="bg-white p-10 rounded-[2.5rem] border border-mochi-200 shadow-sm hover:shadow-lg hover:-translate-y-2 transition-all duration-300 group">
@@ -192,14 +192,14 @@
                         </div>
                         <h3 class="font-rounded font-extrabold text-2xl text-choco-900 mb-4">全面可編輯化</h3>
                         <p class="text-base text-choco-800 leading-relaxed font-bold opacity-80">
-                            圖片與色塊完美墊在底層，所有文字自動轉換為活生生的 PPTX 文字方塊，方便您隨時修改錯字或更新內容。
+                            透過魔法橡皮擦隱藏底圖死字，所有文字自動轉換為活生生的 PPTX 文字方塊，方便您隨時修改錯字。
                         </p>
                     </div>
                 </div>
             </div>
         </section>
 
-        <!-- Comparison Section (比較表重磅回歸！) -->
+        <!-- Comparison Section (比較表) -->
         <section id="compare" class="w-full py-24 px-4 sm:px-6">
             <div class="max-w-5xl mx-auto">
                 <div class="text-center mb-16">
@@ -234,7 +234,7 @@
                                 <tr class="border-b border-mochi-100 hover:bg-mochi-50 transition-colors">
                                     <td class="p-6">圖表與架構圖</td>
                                     <td class="p-6 opacity-60 flex items-center gap-2"><i class="ph-fill ph-x-circle text-red-400 text-xl"></i> 容易與文字混在一起</td>
-                                    <td class="p-6 bg-matcha/5 text-choco-900"><div class="flex items-center gap-2"><i class="ph-fill ph-check-circle text-matcha text-xl"></i> 圖層自動拆解分離，互不干擾</div></td>
+                                    <td class="p-6 bg-matcha/5 text-choco-900"><div class="flex items-center gap-2"><i class="ph-fill ph-check-circle text-matcha text-xl"></i> 確保圖表背景100%無損呈現</div></td>
                                 </tr>
                                 <tr class="hover:bg-mochi-50 transition-colors">
                                     <td class="p-6">使用費用</td>
@@ -395,7 +395,6 @@
                         const downloadUrl = window.URL.createObjectURL(blob);
                         downloadBtn.href = downloadUrl;
                         
-                        // 🚨 維持這行正確的命名邏輯：_麻糬簡報.pptx
                         downloadBtn.download = file.name.replace('.pdf', '_麻糬簡報.pptx');
 
                         setTimeout(() => {
