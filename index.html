@@ -1,418 +1,180 @@
-<!DOCTYPE html>
-<html lang="zh-Hant">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MochiSlide 麻糬簡報 | 可愛又強大的 AI 簡報轉換器</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍡</text></svg>">
-    
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
-    
-    <script src="https://unpkg.com/@phosphor-icons/web"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
+import os
+import io
+import re
+import traceback
+import uuid
+from urllib.parse import quote
+from fastapi import FastAPI, UploadFile, File, HTTPException, Request, BackgroundTasks
+from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
+import fitz  # PyMuPDF
+from pptx import Presentation
+from pptx.util import Inches, Pt
+from pptx.dml.color import RGBColor
 
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        mochi: { 50: '#FFFDF9', 100: '#FDF8F0', 200: '#F5EBE0', 300: '#E8D5C4', 400: '#D4B89F' },
-                        choco: { 800: '#5C4A3D', 900: '#4A3B31' },
-                        matcha: { DEFAULT: '#88A07A', hover: '#738C66' },
-                        peach: { DEFAULT: '#F4A298' }
-                    },
-                    fontFamily: {
-                        sans: ['Nunito', '"M PLUS Rounded 1c"', 'sans-serif'],
-                        rounded: ['"M PLUS Rounded 1c"', 'sans-serif'],
-                    },
-                    animation: {
-                        'fade-in': 'fadeIn 0.5s ease-out forwards',
-                        'bounce-slight': 'bounceSlight 2s infinite ease-in-out',
-                        'pop-in': 'popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards',
-                    },
-                    keyframes: {
-                        fadeIn: { '0%': { opacity: '0', transform: 'translateY(10px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
-                        bounceSlight: { '0%, 100%': { transform: 'translateY(0)' }, '50%': { transform: 'translateY(-6px)' } },
-                        popIn: { '0%': { opacity: '0', transform: 'scale(0.9)' }, '100%': { opacity: '1', transform: 'scale(1)' } }
-                    }
-                }
-            }
-        }
-    </script>
+app = FastAPI(title="MochiSlide Backend")
 
-    <style>
-        body { background-color: #FFFDF9; color: #5C4A3D; scroll-behavior: smooth; }
-        .upload-dashed-border {
-            background-image: url("data:image/svg+xml,%3csvg width='100%25' height='100%25' xmlns='http://www.w3.org/2000/svg'%3e%3crect width='100%25' height='100%25' fill='none' rx='32' ry='32' stroke='%23E8D5C4' stroke-width='3' stroke-dasharray='12%2c 12' stroke-dashoffset='0' stroke-linecap='round'/%3e%3c/svg%3e");
-            border-radius: 32px; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        .upload-dashed-border.dragover {
-            background-image: url("data:image/svg+xml,%3csvg width='100%25' height='100%25' xmlns='http://www.w3.org/2000/svg'%3e%3crect width='100%25' height='100%25' fill='%23FDF8F0' rx='32' ry='32' stroke='%2388A07A' stroke-width='3' stroke-dasharray='12%2c 12' stroke-dashoffset='0' stroke-linecap='round'/%3e%3c/svg%3e");
-            transform: scale(1.03) translateY(-4px); box-shadow: 0 20px 40px rgba(136, 160, 122, 0.15);
-        }
-        .cute-spinner {
-            width: 24px; height: 24px; border: 4px solid rgba(136, 160, 122, 0.2); border-top-color: #88A07A; border-radius: 50%;
-            animation: spin 1s infinite cubic-bezier(0.68, -0.55, 0.265, 1.55);
-        }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-    </style>
-</head>
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-<body class="antialiased min-h-screen flex flex-col font-sans selection:bg-matcha selection:text-white">
+TASKS = {}
 
-    <div id="toast" class="fixed top-6 right-6 z-50 bg-choco-900 text-white px-6 py-3.5 rounded-2xl shadow-xl font-bold flex items-center gap-3 transition-all transform translate-y-[-100px] opacity-0">
-        <i class="ph-bold ph-bell text-matcha text-xl"></i>
-        <span id="toastText">訊息提示</span>
-    </div>
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    error_detail = str(exc)
+    print(f"🔥 後端崩潰: {traceback.format_exc()}")
+    return JSONResponse(status_code=500, content={"detail": error_detail})
 
-    <!-- Header -->
-    <header class="w-full py-6 px-8 flex justify-between items-center max-w-6xl mx-auto">
-        <div class="flex items-center gap-2 text-choco-900 group cursor-pointer" onclick="window.scrollTo(0,0)">
-            <div class="bg-matcha text-white p-2 rounded-2xl group-hover:rotate-12 transition-transform duration-300">
-                <i class="ph-bold ph-ghost text-2xl"></i>
-            </div>
-            <span class="font-rounded font-extrabold text-2xl tracking-wide">MochiSlide</span>
-        </div>
-        <div class="flex items-center gap-4">
-            <a href="#features" class="hidden sm:block text-choco-800 font-bold hover:text-matcha transition-colors">產品特色</a>
-            <a href="#compare" class="hidden sm:block text-choco-800 font-bold hover:text-matcha transition-colors">優勢比較</a>
-            <button onclick="openSettings()" class="p-2.5 bg-mochi-100 hover:bg-mochi-200 rounded-full text-choco-800 transition-colors border border-mochi-200" title="配置後端 API 網址">
-                <i class="ph-bold ph-gear-six text-xl"></i>
-            </button>
-        </div>
-    </header>
+@app.get("/")
+def read_root():
+    return {
+        "message": "Backend is running!",
+        "version": "v_clear_watermark_999",
+        "note": "終極去浮水印拆解引擎上線！"
+    }
 
-    <main class="flex-grow flex flex-col items-center w-full">
+def process_pdf_task(task_id: str, file_bytes: bytes, filename: str):
+    try:
+        pdf_doc = fitz.open(stream=file_bytes, filetype="pdf")
+        total_pages = min(len(pdf_doc), 30)
         
-        <!-- Hero Section -->
-        <section class="text-center mt-10 mb-10 px-4 sm:px-6 w-full max-w-5xl mx-auto animate-fade-in">
-            <div class="flex flex-wrap justify-center gap-3 mb-6">
-                <span class="px-4 py-1.5 bg-mochi-200 text-choco-800 text-sm font-bold rounded-full flex items-center gap-1.5 shadow-sm"><i class="ph-bold ph-lock-key-open text-matcha"></i> 免費免登入</span>
-                <span class="px-4 py-1.5 bg-mochi-200 text-choco-800 text-sm font-bold rounded-full flex items-center gap-1.5 shadow-sm"><i class="ph-bold ph-eraser text-peach"></i> AI 抹除浮水印</span>
-                <span class="px-4 py-1.5 bg-mochi-200 text-choco-800 text-sm font-bold rounded-full flex items-center gap-1.5 shadow-sm"><i class="ph-bold ph-text-aa text-blue-400"></i> 文字原生排版</span>
-            </div>
-            
-            <h1 class="text-4xl md:text-5xl lg:text-6xl font-rounded font-extrabold text-choco-900 leading-[1.3] mb-6">
-                把硬梆梆的 PDF <br class="hidden md:block"/>
-                變成 <span class="relative inline-block px-2">
-                    <span class="relative z-10 text-matcha">軟QQ的</span>
-                    <span class="absolute bottom-2 left-0 w-full h-4 bg-matcha/20 -z-10 rounded-full"></span>
-                </span> 智慧簡報
-            </h1>
-            <p class="text-lg text-choco-800 max-w-2xl mx-auto font-medium leading-relaxed opacity-90 mb-10">
-                自動過濾 NotebookLM 背景格線與浮水印文字。<br/>
-                轉換後的簡報可以自由打字、換行、移動圖表，就是這麼神奇！
-            </p>
-        </section>
+        TASKS[task_id]["total"] = total_pages
+        TASKS[task_id]["progress"] = f"啟動圖層拆解... 共 {total_pages} 頁"
 
-        <!-- Dropzone Section -->
-        <section class="w-full max-w-3xl mb-32 px-4 sm:px-6 animate-fade-in" style="animation-delay: 0.2s;">
-            <div id="dropzone" class="upload-dashed-border bg-white cursor-pointer relative p-12 md:p-24 flex flex-col items-center justify-center text-center group hover:bg-mochi-50">
-                <input type="file" id="fileInput" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" accept=".pdf" title="">
-                
-                <div class="pointer-events-none w-20 h-20 bg-mochi-100 text-matcha rounded-[2rem] flex items-center justify-center mb-6 animate-bounce-slight shadow-sm border border-mochi-200">
-                    <i class="ph-bold ph-cloud-arrow-up text-4xl"></i>
-                </div>
-                
-                <h3 class="pointer-events-none text-2xl font-rounded font-extrabold text-choco-900 mb-3">把簡報檔案丟進來吧！</h3>
-                <p class="pointer-events-none text-choco-800 opacity-70 font-bold mb-4">支援包含文字層的 PDF (點擊或拖曳皆可)</p>
-                <div class="pointer-events-none bg-mochi-100 px-4 py-2 rounded-full text-xs text-choco-800 font-bold border border-mochi-200">
-                    💡 支援檔案大小 30MB 內，單次最高處理 30 頁
-                </div>
-            </div>
-
-            <!-- 進度追蹤區塊 -->
-            <div id="processingArea" class="hidden bg-white border-2 border-mochi-200 rounded-[2rem] p-10 shadow-lg mt-8 relative overflow-hidden">
-                <div class="absolute top-0 left-0 w-full h-2 bg-mochi-200">
-                    <div id="progressBar" class="h-full bg-matcha w-0 transition-all duration-300 rounded-r-full"></div>
-                </div>
-
-                <div class="flex items-center gap-5 mb-8">
-                    <div class="p-4 bg-mochi-100 rounded-2xl text-matcha shadow-inner">
-                        <i class="ph-fill ph-magic-wand text-3xl animate-pulse"></i>
-                    </div>
-                    <div>
-                        <h4 class="font-rounded font-extrabold text-xl text-choco-900">AI 魔法轉換中...</h4>
-                        <p class="text-sm font-bold text-choco-800 opacity-70" id="currentFileName">file.pdf</p>
-                    </div>
-                </div>
-
-                <div class="space-y-5">
-                    <div class="flex items-center gap-4 text-base font-bold" id="step1">
-                        <div class="step-icon w-8 h-8 flex items-center justify-center bg-mochi-100 rounded-full"><div class="cute-spinner"></div></div>
-                        <span class="step-text text-choco-900" id="progressStatusText">正在喚醒雲端伺服器 (若主機休眠約需等候 50 秒)...</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 成功區塊 -->
-            <div id="successArea" class="hidden bg-white border-2 border-matcha/30 rounded-[2rem] p-12 shadow-xl shadow-matcha/10 mt-8 text-center flex flex-col items-center relative overflow-hidden">
-                <div class="absolute -top-10 -right-10 text-matcha opacity-10 rotate-12"><i class="ph-fill ph-confetti text-9xl"></i></div>
-                <div class="w-20 h-20 bg-matcha text-white rounded-full flex items-center justify-center mb-5 shadow-lg shadow-matcha/40">
-                    <i class="ph-bold ph-check text-4xl"></i>
-                </div>
-                <h4 class="font-rounded font-extrabold text-3xl text-choco-900 mb-3">轉換大成功！</h4>
-                <p class="text-choco-800 font-bold opacity-80 mb-8 max-w-sm">您的檔案已被完美去浮水印，並已轉換為原生 PowerPoint 檔案！</p>
-                <a id="downloadBtn" href="#" class="bg-matcha hover:bg-matcha-hover text-white px-10 py-4 rounded-full font-extrabold text-lg transition-all flex items-center gap-3 shadow-xl shadow-matcha/30 hover:-translate-y-1 hover:shadow-2xl">
-                    <i class="ph-bold ph-download-simple text-2xl"></i> 立即下載 PPTX
-                </a>
-                <button onclick="resetApp()" class="mt-6 text-sm font-bold text-choco-800 underline decoration-mochi-300 underline-offset-4 hover:text-matcha transition-colors">再轉換另一份檔案</button>
-            </div>
-        </section>
-
-        <!-- Features Section (優勢介紹) -->
-        <section id="features" class="w-full bg-mochi-100/50 border-y border-mochi-200 py-24 px-4 sm:px-6">
-            <div class="max-w-6xl mx-auto">
-                <div class="text-center mb-16">
-                    <h2 class="text-3xl md:text-4xl font-rounded font-extrabold text-choco-900 mb-4">為什麼選擇 MochiSlide？</h2>
-                    <p class="text-choco-800 font-bold opacity-80 max-w-2xl mx-auto">我們專為修復與還原 AI 生成簡報而生，解決傳統轉檔工具無法處理的痛點。</p>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-                    <!-- Feature 1 -->
-                    <div class="bg-white p-10 rounded-[2.5rem] border border-mochi-200 shadow-sm hover:shadow-lg hover:-translate-y-2 transition-all duration-300 group">
-                        <div class="w-16 h-16 bg-mochi-100 text-choco-900 rounded-3xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                            <i class="ph-bold ph-text-t text-4xl"></i>
-                        </div>
-                        <h3 class="font-rounded font-extrabold text-2xl text-choco-900 mb-4">文字框完美還原</h3>
-                        <p class="text-base text-choco-800 leading-relaxed font-bold opacity-80">
-                            透過最強大的 Google Gemini AI 進行深度語意分析，將原本在 PDF 裡打碎、斷行的零散字串，重新組合為能夠正常打字、換行的智慧文字方塊。
-                        </p>
-                    </div>
-                    <!-- Feature 2 -->
-                    <div class="bg-white p-10 rounded-[2.5rem] border border-mochi-200 shadow-sm hover:shadow-lg hover:-translate-y-2 transition-all duration-300 group">
-                        <div class="w-16 h-16 bg-mochi-100 text-peach rounded-3xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                            <i class="ph-bold ph-eraser text-4xl"></i>
-                        </div>
-                        <h3 class="font-rounded font-extrabold text-2xl text-choco-900 mb-4">完美去背景格線</h3>
-                        <p class="text-base text-choco-800 leading-relaxed font-bold opacity-80">
-                            利用伺服器後端的圖像面積分析技術，徹底抹除 NotebookLM 經典的「淡灰色背景格線」以及「CONFIDENTIAL」等各種破壞畫面的頑固浮水印。
-                        </p>
-                    </div>
-                    <!-- Feature 3 -->
-                    <div class="bg-white p-10 rounded-[2.5rem] border border-mochi-200 shadow-sm hover:shadow-lg hover:-translate-y-2 transition-all duration-300 group">
-                        <div class="w-16 h-16 bg-mochi-100 text-blue-500 rounded-3xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                            <i class="ph-bold ph-bounding-box text-4xl"></i>
-                        </div>
-                        <h3 class="font-rounded font-extrabold text-2xl text-choco-900 mb-4">圖片物件全解鎖</h3>
-                        <p class="text-base text-choco-800 leading-relaxed font-bold opacity-80">
-                            精準辨識並剪裁簡報中的晶片圖、架構圖或示意圖，保留為獨立的圖片元件。插入 PPTX 後，所有圖片都可以隨意拖曳、自由調整大小。
-                        </p>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Comparison Section (比較表) -->
-        <section id="compare" class="w-full py-24 px-4 sm:px-6">
-            <div class="max-w-5xl mx-auto">
-                <div class="text-center mb-16">
-                    <h2 class="text-3xl md:text-4xl font-rounded font-extrabold text-choco-900 mb-4">和其他網站的比較</h2>
-                    <p class="text-choco-800 font-bold opacity-80 max-w-2xl mx-auto">沒有比較沒有傷害，看看 MochiSlide 如何徹底改變你的簡報工作流。</p>
-                </div>
-
-                <div class="bg-white rounded-[2.5rem] border-2 border-mochi-200 overflow-hidden shadow-xl">
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left border-collapse min-w-[600px]">
-                            <thead>
-                                <tr class="bg-mochi-100">
-                                    <th class="p-6 font-rounded font-extrabold text-xl text-choco-900 border-b-2 border-mochi-200 w-1/3">轉換痛點</th>
-                                    <th class="p-6 font-rounded font-extrabold text-xl border-b-2 border-mochi-200 text-choco-800/50 w-1/3">傳統 PDF 轉檔工具</th>
-                                    <th class="p-6 font-rounded font-extrabold text-xl border-b-2 border-matcha text-matcha bg-matcha/5 w-1/3 relative overflow-hidden">
-                                        <div class="absolute -right-4 -top-4 text-matcha opacity-10 rotate-12"><i class="ph-fill ph-sparkle text-6xl"></i></div>
-                                        <span class="relative z-10">MochiSlide</span>
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody class="text-choco-800 font-bold text-base">
-                                <tr class="border-b border-mochi-100 hover:bg-mochi-50 transition-colors">
-                                    <td class="p-6">背景格線與浮水印</td>
-                                    <td class="p-6 opacity-60 flex items-center gap-2"><i class="ph-fill ph-x-circle text-red-400 text-xl"></i> 原封不動保留</td>
-                                    <td class="p-6 bg-matcha/5 text-choco-900"><div class="flex items-center gap-2"><i class="ph-fill ph-check-circle text-matcha text-xl"></i> 自動精準抹除</div></td>
-                                </tr>
-                                <tr class="border-b border-mochi-100 hover:bg-mochi-50 transition-colors">
-                                    <td class="p-6">文字段落編輯</td>
-                                    <td class="p-6 opacity-60 flex items-center gap-2"><i class="ph-fill ph-x-circle text-red-400 text-xl"></i> 變成死圖片或亂碼</td>
-                                    <td class="p-6 bg-matcha/5 text-choco-900"><div class="flex items-center gap-2"><i class="ph-fill ph-check-circle text-matcha text-xl"></i> 完美還原，可自由打字</div></td>
-                                </tr>
-                                <tr class="border-b border-mochi-100 hover:bg-mochi-50 transition-colors">
-                                    <td class="p-6">圖表與架構圖</td>
-                                    <td class="p-6 opacity-60 flex items-center gap-2"><i class="ph-fill ph-x-circle text-red-400 text-xl"></i> 黏在背景無法移動</td>
-                                    <td class="p-6 bg-matcha/5 text-choco-900"><div class="flex items-center gap-2"><i class="ph-fill ph-check-circle text-matcha text-xl"></i> 獨立元件，可任意拖曳縮放</div></td>
-                                </tr>
-                                <tr class="hover:bg-mochi-50 transition-colors">
-                                    <td class="p-6">使用費用</td>
-                                    <td class="p-6 opacity-60 flex items-center gap-2"><i class="ph-fill ph-x-circle text-red-400 text-xl"></i> 需訂閱付費或有頁數限制</td>
-                                    <td class="p-6 bg-matcha/5 text-matcha text-lg font-extrabold"><div class="flex items-center gap-2"><i class="ph-fill ph-check-circle text-matcha text-xl"></i> 100% 永久免費</div></td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </section>
+        prs = Presentation()
+        prs.slide_width = Inches(13.333)
+        prs.slide_height = Inches(7.5)
         
-        <!-- Settings Modal -->
-        <div id="settingsModal" class="fixed inset-0 bg-choco-900/40 backdrop-blur-sm z-50 flex items-center justify-center hidden">
-            <div class="bg-white rounded-[2rem] border-4 border-mochi-200 p-8 w-full max-w-md mx-4 shadow-2xl relative animate-pop-in">
-                <button onclick="closeSettings()" class="absolute top-6 right-6 text-choco-800 hover:text-peach transition-colors"><i class="ph-bold ph-x text-2xl"></i></button>
-                <h3 class="font-rounded font-extrabold text-2xl text-choco-900 mb-4 flex items-center gap-2"><i class="ph-fill ph-gear-six text-matcha"></i> 伺服器設定</h3>
-                <p class="text-sm font-bold text-choco-800/80 leading-relaxed mb-6">請輸入您部署在 Render 的 Python 後端 API 網址：</p>
-                <input type="url" id="backendUrlInput" placeholder="https://your-backend.onrender.com" class="w-full px-4 py-3 bg-mochi-50 rounded-2xl border-2 border-mochi-200 focus:border-matcha outline-none font-bold text-sm text-choco-900 transition-colors">
-                <div class="mt-8 flex gap-3">
-                    <button onclick="closeSettings()" class="flex-1 py-3 bg-mochi-100 hover:bg-mochi-200 text-choco-800 font-extrabold rounded-2xl transition-colors">取消</button>
-                    <button onclick="saveSettings()" class="flex-1 py-3 bg-matcha hover:bg-matcha-hover text-white font-extrabold rounded-2xl transition-all shadow-md shadow-matcha/20">儲存設定</button>
-                </div>
-            </div>
-        </div>
-    </main>
+        for page_idx in range(total_pages):
+            TASKS[task_id]["current"] = page_idx + 1
+            TASKS[task_id]["progress"] = f"⚡ 正在抽取純淨圖層與文字 (第 {page_idx + 1} / {total_pages} 頁)..."
 
-    <!-- Footer -->
-    <footer class="w-full bg-mochi-100 border-t border-mochi-200 py-12 px-6 mt-auto">
-        <div class="max-w-4xl mx-auto text-sm text-choco-800 font-bold space-y-4">
-            <div class="flex items-start gap-3">
-                <i class="ph-fill ph-shield-check text-matcha text-xl mt-0.5"></i>
-                <div>
-                    <h4 class="font-extrabold text-choco-900 mb-1">隱私最安心</h4>
-                    <p class="opacity-80 leading-relaxed">我們採用「客戶端-伺服器」加密通訊。檔案僅在記憶體中進行 AI 分析，轉換完成即刻銷毀殘留，安全乾淨，決不挪用。</p>
-                </div>
-            </div>
-            <div class="pt-8 border-t border-mochi-200 text-center text-xs opacity-70">
-                Created by 王禹硯 | © 2026 MochiSlide (麻糬簡報). All rights reserved.
-            </div>
-        </div>
-    </footer>
-
-    <script>
-        const dropzone = document.getElementById('dropzone');
-        const fileInput = document.getElementById('fileInput');
-        const processingArea = document.getElementById('processingArea');
-        const successArea = document.getElementById('successArea');
-        const currentFileName = document.getElementById('currentFileName');
-        const progressBar = document.getElementById('progressBar');
-        const settingsModal = document.getElementById('settingsModal');
-        const backendUrlInput = document.getElementById('backendUrlInput');
-        const downloadBtn = document.getElementById('downloadBtn');
-        const progressStatusText = document.getElementById('progressStatusText');
-
-        window.addEventListener('load', () => {
-            const savedUrl = localStorage.getItem('mochislide_backend_url');
-            if (savedUrl) backendUrlInput.value = savedUrl;
-            else { showToast("請先設定您的後端 API 網址喔！"); setTimeout(openSettings, 800); }
-        });
-
-        function showToast(message) {
-            const toast = document.getElementById('toast');
-            document.getElementById('toastText').textContent = message;
-            toast.style.transform = 'translateY(0)'; toast.style.opacity = '1';
-            setTimeout(() => { toast.style.transform = 'translateY(-100px)'; toast.style.opacity = '0'; }, 4000);
-        }
-
-        function openSettings() { settingsModal.classList.remove('hidden'); }
-        function closeSettings() { settingsModal.classList.add('hidden'); }
-        function saveSettings() {
-            let url = backendUrlInput.value.trim();
-            if (url.endsWith('/')) url = url.slice(0, -1);
-            localStorage.setItem('mochislide_backend_url', url);
-            showToast("伺服器設定儲存成功！"); closeSettings();
-        }
-
-        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-            dropzone.addEventListener(eventName, preventDefaults, false);
-            document.body.addEventListener(eventName, preventDefaults, false);
-        });
-        function preventDefaults(e) { e.preventDefault(); e.stopPropagation(); }
-        ['dragenter', 'dragover'].forEach(eventName => dropzone.addEventListener(eventName, () => dropzone.classList.add('dragover'), false));
-        ['dragleave', 'drop'].forEach(eventName => dropzone.addEventListener(eventName, () => dropzone.classList.remove('dragover'), false));
-
-        dropzone.addEventListener('drop', (e) => handleFiles(e.dataTransfer.files), false);
-        fileInput.addEventListener('change', function() { handleFiles(this.files); });
-
-        async function handleFiles(files) {
-            if (files.length === 0) return;
-            const file = files[0];
-            if (!file.name.toLowerCase().endsWith('.pdf')) { showToast("只支援 .pdf 格式喔！"); return; }
-
-            const backendUrl = localStorage.getItem('mochislide_backend_url');
-            if (!backendUrl) { openSettings(); return; }
-
-            currentFileName.textContent = file.name;
-            dropzone.classList.add('hidden');
-            processingArea.classList.remove('hidden');
-            
-            progressBar.style.width = '10%';
-            progressStatusText.textContent = "正在喚醒雲端伺服器...";
-            
-            try {
-                // 1. 喚醒
-                await fetch(`${backendUrl}/`);
-                progressBar.style.width = '20%';
-                progressStatusText.textContent = "伺服器已就緒！正在上傳檔案...";
-
-                // 2. 建立背景任務
-                const formData = new FormData();
-                formData.append('file', file);
+            page = pdf_doc[page_idx]
+            pdf_w = page.rect.width
+            pdf_h = page.rect.height
+            if pdf_w == 0 or pdf_h == 0: continue
                 
-                const uploadRes = await fetch(`${backendUrl}/api/upload`, { method: 'POST', body: formData });
-                if (!uploadRes.ok) throw new Error("上傳失敗");
-                
-                const { task_id } = await uploadRes.json();
+            scale_x = prs.slide_width / pdf_w
+            scale_y = prs.slide_height / pdf_h
 
-                // 3. 每 2 秒詢問一次進度 (Polling 機制)
-                let isPolling = true;
-                while(isPolling) {
-                    await new Promise(resolve => setTimeout(resolve, 2000));
-                    
-                    const statusRes = await fetch(`${backendUrl}/api/status/${task_id}`);
-                    const statusData = await statusRes.json();
+            slide = prs.slides.add_slide(prs.slide_layouts[6])
 
-                    if (statusData.status === 'error') {
-                        throw new Error(statusData.error);
-                    }
+            # 1. 抓取背景顏色
+            bg_color = (255, 255, 255)
+            max_area = 0
+            for d in page.get_drawings():
+                if d.get("fill"):
+                    rect = d["rect"]
+                    area = rect.width * rect.height
+                    if area > max_area and area > (pdf_w * pdf_h * 0.5):
+                        max_area = area
+                        c = d["fill"]
+                        if len(c) == 3: bg_color = (int(c[0]*255), int(c[1]*255), int(c[2]*255))
+            
+            slide.background.fill.solid()
+            slide.background.fill.fore_color.rgb = RGBColor(*bg_color)
 
-                    // 即時更新進度文字給使用者看
-                    progressStatusText.textContent = statusData.progress;
-
-                    // 動態計算進度條長度
-                    if (statusData.total > 0) {
-                        const percent = 20 + (statusData.current / statusData.total * 75);
-                        progressBar.style.width = `${percent}%`;
-                    }
-
-                    // 4. 分析完成，啟動下載！
-                    if (statusData.status === 'completed') {
-                        isPolling = false;
-                        progressBar.style.width = '100%';
+            # 2. 抽取純淨圖片 (不含 PDF 文字)
+            try:
+                for img_info in page.get_images(full=True):
+                    xref = img_info[0]
+                    rects = page.get_image_rects(xref)
+                    if not rects: continue
+                    try:
+                        pix = fitz.Pixmap(pdf_doc, xref)
+                        if pix.n - pix.alpha > 3 or pix.colorspace.name not in ["DeviceRGB", "DeviceGray"]:
+                            pix = fitz.Pixmap(fitz.csRGB, pix)
+                        img_bytes = pix.tobytes("png")
+                        pix = None
                         
-                        const downloadRes = await fetch(`${backendUrl}/api/download/${task_id}`);
-                        const blob = await downloadRes.blob();
-                        const downloadUrl = window.URL.createObjectURL(blob);
-                        downloadBtn.href = downloadUrl;
-                        downloadBtn.download = file.name.replace('.pdf', '_可編輯版.pptx');
+                        for rect in rects:
+                            left, top = int(rect.x0 * scale_x), int(rect.y0 * scale_y)
+                            width, height = int(rect.width * scale_x), int(rect.height * scale_y)
+                            if width > Inches(0.1) and height > Inches(0.1):
+                                slide.shapes.add_picture(io.BytesIO(img_bytes), left, top, width, height)
+                    except Exception: pass
+            except Exception: pass
 
-                        setTimeout(() => {
-                            processingArea.classList.add('hidden');
-                            successArea.classList.remove('hidden');
-                        }, 800);
-                    }
-                }
+            # 3. 抽取活體文字並消除浮水印
+            text_dict = page.get_text("dict")
+            for block in text_dict.get("blocks", []):
+                if block["type"] == 0: 
+                    for line in block.get("lines", []):
+                        # 🔪 看到這兩個字眼，直接刪除，絕對不會出現在簡報上！
+                        line_text = "".join([s["text"] for s in line.get("spans", [])]).lower()
+                        if "notebooklm" in line_text or "confidential" in line_text:
+                            continue 
+                            
+                        x0, y0, x1, y1 = line["bbox"]
+                        left, top = int(x0 * scale_x), int(y0 * scale_y) - Inches(0.02)
+                        width, height = int((x1 - x0) * scale_x) + Inches(0.5), int((y1 - y0) * scale_y) + Inches(0.1)
+                        if width <= 0 or height <= 0: continue
+                            
+                        txBox = slide.shapes.add_textbox(left, top, width, height)
+                        tf = txBox.text_frame
+                        tf.word_wrap = False
+                        tf.margin_bottom = tf.margin_left = tf.margin_right = tf.margin_top = 0
+                        p = tf.paragraphs[0]
+                        p.space_before = p.space_after = Pt(0)
+                        
+                        for span in line.get("spans", []):
+                            text = span.get("text", "")
+                            if not text.strip() and not text.isspace(): continue
+                                
+                            run = p.add_run()
+                            run.text = text
+                            run.font.size = Pt(span.get("size", 12) * (7.5 * 72 / pdf_h))
+                            
+                            flags = span.get("flags", 0)
+                            if flags & 2: run.font.italic = True
+                            if flags & 16: run.font.bold = True
+                            
+                            color = span.get("color", 0)
+                            if isinstance(color, int):
+                                b, g, r = color & 0xFF, (color >> 8) & 0xFF, (color >> 16) & 0xFF
+                                run.font.color.rgb = RGBColor(max(0, min(255, r)), max(0, min(255, g)), max(0, min(255, b)))
+                            
+                            font_name = span.get("font", "Arial").lower()
+                            run.font.name = "Microsoft JhengHei" if "hei" in font_name or "黑" in font_name else "Arial"
 
-            } catch (err) {
-                console.error(err);
-                showToast(`轉換失敗: ${err.message}`);
-                resetApp();
-            }
-        }
+        TASKS[task_id]["progress"] = "✅ 拆解完畢！正在打包 PPTX..."
+        pptx_io = io.BytesIO()
+        prs.save(pptx_io)
+        TASKS[task_id]["status"] = "completed"
+        TASKS[task_id]["file_data"] = pptx_io.getvalue()
 
-        function resetApp() {
-            fileInput.value = '';
-            successArea.classList.add('hidden');
-            processingArea.classList.add('hidden');
-            dropzone.classList.remove('hidden');
-            progressBar.style.width = '0%';
-        }
-    </script>
-</body>
-</html>
+    except Exception as e:
+        TASKS[task_id]["status"] = "error"
+        TASKS[task_id]["error"] = str(e)
+
+@app.post("/api/upload")
+async def upload_pdf(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
+    file_bytes = await file.read()
+    task_id = str(uuid.uuid4())
+    TASKS[task_id] = {"status": "processing", "progress": "準備拆解...", "current": 0, "total": 0, "filename": file.filename, "file_data": None, "error": None}
+    background_tasks.add_task(process_pdf_task, task_id, file_bytes, file.filename)
+    return {"task_id": task_id}
+
+@app.get("/api/status/{task_id}")
+def get_status(task_id: str):
+    return TASKS.get(task_id, {"status": "error", "error": "Task not found"})
+
+@app.get("/api/download/{task_id}")
+def download_pptx(task_id: str):
+    task = TASKS[task_id]
+    # 🚨 鐵證檔名：這次下載的檔案一定會叫 _完美去水版.pptx
+    filename = task["filename"].replace('.pdf', '_完美去水版.pptx')
+    return StreamingResponse(
+        io.BytesIO(task["file_data"]), 
+        media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        headers={"Content-Disposition": f"attachment; filename*=utf-8''{quote(filename)}"}
+    )
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("app:app", host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))
